@@ -315,6 +315,7 @@ Makefile: ..\..\PolarSA.pro C:\Qt\6.10.2\msvc2022_64\mkspecs\win32-msvc\qmake.co
 		C:\Qt\6.10.2\msvc2022_64\mkspecs\features\qt_config.prf \
 		C:\Qt\6.10.2\msvc2022_64\mkspecs\win32-msvc\qmake.conf \
 		C:\Qt\6.10.2\msvc2022_64\mkspecs\features\spec_post.prf \
+		.qmake.stash \
 		C:\Qt\6.10.2\msvc2022_64\mkspecs\features\exclusive_builds.prf \
 		C:\Qt\6.10.2\msvc2022_64\mkspecs\common\msvc-version.conf \
 		C:\Qt\6.10.2\msvc2022_64\mkspecs\features\toolchain.prf \
@@ -347,7 +348,6 @@ Makefile: ..\..\PolarSA.pro C:\Qt\6.10.2\msvc2022_64\mkspecs\win32-msvc\qmake.co
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6SerialPort.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6Core.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6EntryPoint.prl \
-		.qmake.stash \
 		C:\Qt\6.10.2\msvc2022_64\mkspecs\features\build_pass.prf \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6PrintSupportd.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6Widgetsd.prl \
@@ -587,6 +587,7 @@ C:\Qt\6.10.2\msvc2022_64\mkspecs\features\qt_functions.prf:
 C:\Qt\6.10.2\msvc2022_64\mkspecs\features\qt_config.prf:
 C:\Qt\6.10.2\msvc2022_64\mkspecs\win32-msvc\qmake.conf:
 C:\Qt\6.10.2\msvc2022_64\mkspecs\features\spec_post.prf:
+.qmake.stash:
 C:\Qt\6.10.2\msvc2022_64\mkspecs\features\exclusive_builds.prf:
 C:\Qt\6.10.2\msvc2022_64\mkspecs\common\msvc-version.conf:
 C:\Qt\6.10.2\msvc2022_64\mkspecs\features\toolchain.prf:
@@ -619,7 +620,6 @@ C:\Qt\6.10.2\msvc2022_64\lib\Qt6Gui.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6SerialPort.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6Core.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6EntryPoint.prl:
-.qmake.stash:
 C:\Qt\6.10.2\msvc2022_64\mkspecs\features\build_pass.prf:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6PrintSupportd.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6Widgetsd.prl:
