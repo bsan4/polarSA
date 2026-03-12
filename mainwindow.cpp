@@ -25,6 +25,7 @@ MainWindow::MainWindow(QWidget *parent)
     PowerSpectrum ps = tinySA.capture();
     qDebug() << ps.power;
     qDebug() << ps.freq;
+    ui->spectrumPlot->setPowerSpectrum(ps);
 }
 
 MainWindow::~MainWindow()

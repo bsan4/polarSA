@@ -8,12 +8,7 @@
 #include <QString>
 #include <QtSerialPort/QSerialPort>
 
-class PowerSpectrum
-{
-public:
-    QVector<float> power;
-    QVector<float> freq;
-};
+#include "inc/defines.h"
 
 class TinySA : public QObject
 {

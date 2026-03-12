@@ -344,6 +344,7 @@ Makefile: ..\..\PolarSA.pro C:\Qt\6.10.2\msvc2022_64\mkspecs\win32-msvc\qmake.co
 		..\..\PolarSA.pro \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6PrintSupport.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6Widgets.prl \
+		C:\Qt\6.10.2\msvc2022_64\lib\Qt6OpenGL.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6Gui.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6SerialPort.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6Core.prl \
@@ -351,6 +352,7 @@ Makefile: ..\..\PolarSA.pro C:\Qt\6.10.2\msvc2022_64\mkspecs\win32-msvc\qmake.co
 		C:\Qt\6.10.2\msvc2022_64\mkspecs\features\build_pass.prf \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6PrintSupportd.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6Widgetsd.prl \
+		C:\Qt\6.10.2\msvc2022_64\lib\Qt6OpenGLd.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6Guid.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6SerialPortd.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6Cored.prl \
@@ -616,6 +618,7 @@ C:\Qt\6.10.2\msvc2022_64\mkspecs\features\lex.prf:
 ..\..\PolarSA.pro:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6PrintSupport.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6Widgets.prl:
+C:\Qt\6.10.2\msvc2022_64\lib\Qt6OpenGL.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6Gui.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6SerialPort.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6Core.prl:
@@ -623,6 +626,7 @@ C:\Qt\6.10.2\msvc2022_64\lib\Qt6EntryPoint.prl:
 C:\Qt\6.10.2\msvc2022_64\mkspecs\features\build_pass.prf:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6PrintSupportd.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6Widgetsd.prl:
+C:\Qt\6.10.2\msvc2022_64\lib\Qt6OpenGLd.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6Guid.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6SerialPortd.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6Cored.prl:

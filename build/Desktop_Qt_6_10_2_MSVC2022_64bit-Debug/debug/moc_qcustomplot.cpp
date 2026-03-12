@@ -7,8 +7,8 @@
 *****************************************************************************/
 
 #include "../../../lib/QCustomPlot/qcustomplot.h"
-#include <QtGui/qtextcursor.h>
 #include <QtGui/qscreen.h>
+#include <QtGui/qtextcursor.h>
 #include <QtCore/qmetatype.h>
 #include <QtCore/QSharedPointer>
 #include <QtCore/QList>
