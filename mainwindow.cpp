@@ -128,6 +128,7 @@ void MainWindow::sendSAParameters()
     s.spanHz = ui->sbSASpan->value() * 1e6;
     s.points = 290;
     s.rawOffsetDb = 174.0f;
+    s.lna = ui->sbSALNA->isChecked();
     tinySA.setSetup(s);
     tinySA.setDefaults();
 }

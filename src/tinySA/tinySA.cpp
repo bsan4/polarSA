@@ -57,6 +57,7 @@ bool TinySA::applySetup(const Setup &setup)
     if (!setRepeat(setup.repeatCount)) return false;
     if (!setSpur(setup.spurReduction)) return false;
     if (!setExtGain(setup.extGainDb)) return false;
+    if (!setLna(setup.lna)) return false;
 
     if (setup.centerHz != 0)
     {
@@ -440,6 +441,12 @@ bool TinySA::setExtGain(float db)
     }
 
     return sendCommandExpectQuiet(QString("ext_gain %1").arg(db, 0, 'f', 1));
+}
+
+bool TinySA::setLna(bool isOn)
+{
+    if (isOn) return sendCommandExpectQuiet("lna on");
+    else return sendCommandExpectQuiet("lna off");
 }
 
 bool TinySA::setSweepCenter(quint64 centerHz)

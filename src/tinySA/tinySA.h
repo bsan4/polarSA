@@ -29,6 +29,7 @@ public:
 
         int points = 290;              // tinySA scan max is 290, scanraw can do more
         float rawOffsetDb = 174.0f;    // 128=tinySA, 174=tinySA Ultra
+        bool lna = false;
     };
 
     explicit TinySA(QObject *parent = nullptr);
@@ -75,6 +76,7 @@ private:
     bool setRepeat(int repeatCount);
     bool setSpur(bool enabled);
     bool setExtGain(float db);
+    bool setLna(bool isOn);
     bool setSweepCenter(quint64 centerHz);
     bool setSweepSpan(quint64 spanHz);
     QByteArray readExact(int byteCount, int timeoutMs);
