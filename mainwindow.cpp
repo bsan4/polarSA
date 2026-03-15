@@ -18,6 +18,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect( ui->pbSingleCapture, &QPushButton::pressed, this, &MainWindow::triggerSingleCapture );
     connect( ui->pbSequenceCapture, &QPushButton::pressed, this, &MainWindow::triggerSequenceCapture );
     connect( ui->pbStopCapture, &QPushButton::pressed, this, &MainWindow::triggerStopCapture );
+    connect( ui->hsFreq, &QSlider::valueChanged, this, &MainWindow::freqSliderMoved);
 
     connect( &rotator, &Rotator::connected, this, [this](){ ui->lbRotatorStatus->setText("Connected"); });
     connect( &rotator, &Rotator::disconnected, this, [this](){ ui->lbRotatorStatus->setText("Disconnected"); });
@@ -74,6 +75,7 @@ void MainWindow::triggerSequenceCapture()
 
     RadiationPattern rp;
     PowerSpectrum maxPs;
+    powerSpectra.clear();
     int startAngle = ui->sbRotatorStart->value();
     int endAngle = ui->sbRotatorEnd->value();
     int angleStep = ui->sbRotatorStep->value();
@@ -95,9 +97,10 @@ void MainWindow::triggerSequenceCapture()
             rp.power.push_back( ps.power.at(0) );
             a += angleStep;
             ui->spectrumPlot->setPowerSpectrum(ps);
-            ui->powerPlot->setRadiationPattern(rp);
+            powerSpectra.append(ps);
+            updateRadiationPattern();
             if ( maxPs.power.isEmpty() ) maxPs = ps;
-            for( int i = 0; i < rp.power.count(); i++ )
+            for( int i = 0; i < ps.power.count(); i++ )
             {
                 if ( maxPs.power.at(i) < ps.power.at(i) )
                 {
@@ -114,6 +117,11 @@ void MainWindow::triggerSequenceCapture()
 void MainWindow::triggerStopCapture()
 {
     stopCapture = true;
+}
+
+void MainWindow::freqSliderMoved(int idChanged)
+{
+    updateRadiationPattern();
 }
 
 void MainWindow::sendSAParameters()
@@ -141,6 +149,11 @@ void MainWindow::sendSAParameters()
     s.lna = ui->sbSALNA->isChecked();
     tinySA.setSetup(s);
     tinySA.setDefaults();
+
+    ui->lbMinFreq->setText( QString::number(1e-6*(s.centerHz - s.spanHz/2), 'f', 2) + " MHz");
+    ui->lbMaxFreq->setText( QString::number(1e-6*(s.centerHz + s.spanHz/2), 'f', 2) + " MHz");
+
+    ui->hsFreq->setRange(0, s.points);
 }
 
 void MainWindow::sendRotatorParameters()
@@ -160,4 +173,28 @@ void MainWindow::sendRotatorParameters()
     }
 
     rotator.setAngle(ui->sbRotatorStart->value());
+}
+
+void MainWindow::updateRadiationPattern()
+{
+    if (powerSpectra.length() > 0)
+    {
+        RadiationPattern rp;
+        int startAngle = ui->sbRotatorStart->value();
+        int endAngle = ui->sbRotatorEnd->value();
+        int angleStep = ui->sbRotatorStep->value();
+
+        int freqId = ui->hsFreq->value();   // index of the targte freq in the data
+
+        for( int specId = 0; specId < powerSpectra.length(); specId ++ )
+        {
+            if ( freqId < powerSpectra.at(specId).power.length() )
+            {
+                float angle = startAngle + specId * angleStep;
+                rp.angles.push_back(static_cast<float>(angle));
+                rp.power.push_back( powerSpectra.at(specId).power.at(freqId) );
+            }
+        }
+        ui->powerPlot->setRadiationPattern(rp);
+    }
 }

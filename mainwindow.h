@@ -23,12 +23,15 @@ private:
     Q_SLOT void triggerSingleCapture();
     Q_SLOT void triggerSequenceCapture();
     Q_SLOT void triggerStopCapture();
+    Q_SLOT void freqSliderMoved(int idChanged);
     void sendSAParameters();
     void sendRotatorParameters();
+    void updateRadiationPattern();
     Ui::MainWindow *ui;
     TinySA tinySA;
     Rotator rotator;
     bool stopCapture = false;
+    QList<PowerSpectrum> powerSpectra;
 
     const QList<QPair<QString, float>> rbwMap = {
         QPair<QString, float>("Auto", -1),
