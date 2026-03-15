@@ -124,7 +124,7 @@ public:
         sbSARBW = new QDoubleSpinBox(groupBox);
         sbSARBW->setObjectName("sbSARBW");
         sbSARBW->setMaximum(10000.000000000000000);
-        sbSARBW->setValue(10.000000000000000);
+        sbSARBW->setValue(100.000000000000000);
 
         gridLayout_6->addWidget(sbSARBW, 3, 1, 1, 1);
 
@@ -231,7 +231,7 @@ public:
         sbRotatorEnd = new QSpinBox(groupBox_2);
         sbRotatorEnd->setObjectName("sbRotatorEnd");
         sbRotatorEnd->setMaximum(360);
-        sbRotatorEnd->setValue(180);
+        sbRotatorEnd->setValue(360);
 
         gridLayout_5->addWidget(sbRotatorEnd, 2, 1, 1, 1);
 

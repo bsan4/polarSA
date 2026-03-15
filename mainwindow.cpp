@@ -17,6 +17,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect( &tinySA, &TinySA::connected, this, [this](){ ui->lbSAStatus->setText("Connected"); });
     connect( &tinySA, &TinySA::disconnected, this, [this](){ ui->lbSAStatus->setText("Disconnected"); });
+
+    ui->powerPlot->setNormalize(false);
 }
 
 MainWindow::~MainWindow()
@@ -76,7 +78,7 @@ void MainWindow::triggerSequenceCapture()
         if (ps.power.length() > 0)
         {
             rp.angles.push_back(static_cast<float>(a));
-            rp.power.push_back(-20.0f * ps.power.at(0) );
+            rp.power.push_back( ps.power.at(0) );
             a += angleStep;
             ui->spectrumPlot->setPowerSpectrum(ps);
             ui->powerPlot->setRadiationPattern(rp);

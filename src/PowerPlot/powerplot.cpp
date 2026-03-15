@@ -190,7 +190,7 @@ void PowerPlot::setRadiationPattern(const RadiationPattern &pattern)
             hi += 1.0;
         }
 
-        mRadialAxis->setRange(lo, hi);
+        mRadialAxis->setRange(lo - 30, hi);
         mRadialAxis->setLabel("Power (dBm)");
     }
 
