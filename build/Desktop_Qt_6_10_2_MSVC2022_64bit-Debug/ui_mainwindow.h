@@ -70,12 +70,14 @@ public:
     QLabel *label_4;
     QGroupBox *groupBox_3;
     QGridLayout *gridLayout_4;
-    QSpacerItem *verticalSpacer;
-    QSpacerItem *verticalSpacer_4;
-    QPushButton *pbSequenceCapture;
+    QPushButton *pbStopCapture;
     QPushButton *pbSingleCapture;
+    QSpacerItem *verticalSpacer_4;
     QPushButton *pushButton_3;
+    QPushButton *pbSequenceCapture;
     QPushButton *pushButton_4;
+    QSpacerItem *verticalSpacer;
+    QSpacerItem *verticalSpacer_5;
     QMenuBar *menubar;
     QStatusBar *statusbar;
 
@@ -251,23 +253,19 @@ public:
         groupBox_3->setObjectName("groupBox_3");
         gridLayout_4 = new QGridLayout(groupBox_3);
         gridLayout_4->setObjectName("gridLayout_4");
-        verticalSpacer = new QSpacerItem(20, 403, QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Expanding);
+        pbStopCapture = new QPushButton(groupBox_3);
+        pbStopCapture->setObjectName("pbStopCapture");
 
-        gridLayout_4->addItem(verticalSpacer, 5, 0, 1, 1);
-
-        verticalSpacer_4 = new QSpacerItem(20, 40, QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Fixed);
-
-        gridLayout_4->addItem(verticalSpacer_4, 2, 0, 1, 1);
-
-        pbSequenceCapture = new QPushButton(groupBox_3);
-        pbSequenceCapture->setObjectName("pbSequenceCapture");
-
-        gridLayout_4->addWidget(pbSequenceCapture, 3, 0, 1, 1);
+        gridLayout_4->addWidget(pbStopCapture, 6, 0, 1, 1);
 
         pbSingleCapture = new QPushButton(groupBox_3);
         pbSingleCapture->setObjectName("pbSingleCapture");
 
         gridLayout_4->addWidget(pbSingleCapture, 0, 0, 1, 1);
+
+        verticalSpacer_4 = new QSpacerItem(20, 40, QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Fixed);
+
+        gridLayout_4->addItem(verticalSpacer_4, 2, 0, 1, 1);
 
         pushButton_3 = new QPushButton(groupBox_3);
         pushButton_3->setObjectName("pushButton_3");
@@ -275,11 +273,24 @@ public:
 
         gridLayout_4->addWidget(pushButton_3, 1, 0, 1, 1);
 
+        pbSequenceCapture = new QPushButton(groupBox_3);
+        pbSequenceCapture->setObjectName("pbSequenceCapture");
+
+        gridLayout_4->addWidget(pbSequenceCapture, 3, 0, 1, 1);
+
         pushButton_4 = new QPushButton(groupBox_3);
         pushButton_4->setObjectName("pushButton_4");
         pushButton_4->setEnabled(false);
 
         gridLayout_4->addWidget(pushButton_4, 4, 0, 1, 1);
+
+        verticalSpacer = new QSpacerItem(20, 403, QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Expanding);
+
+        gridLayout_4->addItem(verticalSpacer, 7, 0, 1, 1);
+
+        verticalSpacer_5 = new QSpacerItem(20, 40, QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Fixed);
+
+        gridLayout_4->addItem(verticalSpacer_5, 5, 0, 1, 1);
 
 
         gridLayout->addWidget(groupBox_3, 1, 2, 2, 1);
@@ -322,9 +333,10 @@ public:
         label_2->setText(QCoreApplication::translate("MainWindow", "End angle", nullptr));
         label_4->setText(QCoreApplication::translate("MainWindow", "Status", nullptr));
         groupBox_3->setTitle(QCoreApplication::translate("MainWindow", "Capture", nullptr));
-        pbSequenceCapture->setText(QCoreApplication::translate("MainWindow", "Capture Sequence", nullptr));
+        pbStopCapture->setText(QCoreApplication::translate("MainWindow", "Stop", nullptr));
         pbSingleCapture->setText(QCoreApplication::translate("MainWindow", "Capture Single", nullptr));
         pushButton_3->setText(QCoreApplication::translate("MainWindow", "Loop Single Capture", nullptr));
+        pbSequenceCapture->setText(QCoreApplication::translate("MainWindow", "Capture Sequence", nullptr));
         pushButton_4->setText(QCoreApplication::translate("MainWindow", "Loop Sequence", nullptr));
     } // retranslateUi
 

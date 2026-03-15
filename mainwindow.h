@@ -22,11 +22,13 @@ public:
 private:
     Q_SLOT void triggerSingleCapture();
     Q_SLOT void triggerSequenceCapture();
+    Q_SLOT void triggerStopCapture();
     void sendSAParameters();
     void sendRotatorParameters();
     Ui::MainWindow *ui;
     TinySA tinySA;
     Rotator rotator;
+    bool stopCapture = false;
 
     const QList<QPair<QString, float>> rbwMap = {
         QPair<QString, float>("Auto", -1),

@@ -17,6 +17,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect( ui->pbSingleCapture, &QPushButton::pressed, this, &MainWindow::triggerSingleCapture );
     connect( ui->pbSequenceCapture, &QPushButton::pressed, this, &MainWindow::triggerSequenceCapture );
+    connect( ui->pbStopCapture, &QPushButton::pressed, this, &MainWindow::triggerStopCapture );
 
     connect( &rotator, &Rotator::connected, this, [this](){ ui->lbRotatorStatus->setText("Connected"); });
     connect( &rotator, &Rotator::disconnected, this, [this](){ ui->lbRotatorStatus->setText("Disconnected"); });
@@ -34,6 +35,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::triggerSingleCapture()
 {
+    stopCapture = false;
     if ( !tinySA.isOpen() || !rotator.isOpen() )
     {
         return;
@@ -47,16 +49,21 @@ void MainWindow::triggerSingleCapture()
     bool success = false;
 
     PowerSpectrum ps = tinySA.capture();
-    while ( ps.power.isEmpty())
+    while ( ps.power.isEmpty() && !stopCapture )
     {
         ps = tinySA.capture();
+        QApplication::processEvents();
     }
-    ui->spectrumPlot->setPowerSpectrum(ps);
+    if ( !ps.freq.isEmpty() )
+    {
+        ui->spectrumPlot->setPowerSpectrum(ps);
+    }
     ui->statusbar->showMessage("Done.");
 }
 
 void MainWindow::triggerSequenceCapture()
 {
+    stopCapture = false;
     if ( !tinySA.isOpen() || !rotator.isOpen() )
     {
         return;
@@ -71,7 +78,7 @@ void MainWindow::triggerSequenceCapture()
     int angleStep = ui->sbRotatorStep->value();
 
     int a = startAngle;
-    while ( a <= endAngle )
+    while ( (a <= endAngle) && !stopCapture  )
     {
         int nbTotalCaptures = (endAngle - startAngle)/angleStep + 1;
         int currentCapture = (a - startAngle)/angleStep + 1;
@@ -91,6 +98,12 @@ void MainWindow::triggerSequenceCapture()
         }
         QApplication::processEvents();
     }
+    ui->statusbar->showMessage("Done.");
+}
+
+void MainWindow::triggerStopCapture()
+{
+    stopCapture = true;
 }
 
 void MainWindow::sendSAParameters()
