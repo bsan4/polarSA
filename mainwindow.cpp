@@ -185,6 +185,8 @@ void MainWindow::updateRadiationPattern()
         int angleStep = ui->sbRotatorStep->value();
 
         int freqId = ui->hsFreq->value();   // index of the targte freq in the data
+        float freqMHz = ui->sbSACenterFreq->value();
+        float spanMHz = ui->sbSASpan->value();
 
         for( int specId = 0; specId < powerSpectra.length(); specId ++ )
         {
@@ -195,6 +197,7 @@ void MainWindow::updateRadiationPattern()
                 rp.power.push_back( powerSpectra.at(specId).power.at(freqId) );
             }
         }
+        ui->lbRPFreq->setText( QString::number(freqMHz - spanMHz/2 + freqId * spanMHz/290, 'f', 2) + " MHz");
         ui->powerPlot->setRadiationPattern(rp);
     }
 }

@@ -16,6 +16,7 @@
 #include <QtWidgets/QDoubleSpinBox>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QGroupBox>
+#include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenuBar>
@@ -46,8 +47,17 @@ public:
     QGridLayout *gridLayout_7;
     QLabel *lbMinFreq;
     QSlider *hsFreq;
-    PowerPlot *powerPlot;
     QLabel *lbMaxFreq;
+    QHBoxLayout *horizontalLayout;
+    PowerPlot *powerPlot;
+    QGridLayout *gridLayout_9;
+    QSpacerItem *verticalSpacer_6;
+    QLabel *label_5;
+    QLabel *lbRPFreq;
+    QLabel *label_12;
+    QLabel *label_14;
+    QLabel *lbRPMax;
+    QLabel *lbRPMin;
     QGroupBox *groupBox_5;
     QGridLayout *gridLayout_8;
     SpectrumPlot *maxSpectrumPlot;
@@ -130,15 +140,61 @@ public:
 
         gridLayout_7->addWidget(hsFreq, 1, 1, 1, 1);
 
-        powerPlot = new PowerPlot(groupBox_4);
-        powerPlot->setObjectName("powerPlot");
-
-        gridLayout_7->addWidget(powerPlot, 0, 1, 1, 1);
-
         lbMaxFreq = new QLabel(groupBox_4);
         lbMaxFreq->setObjectName("lbMaxFreq");
 
         gridLayout_7->addWidget(lbMaxFreq, 1, 2, 1, 1);
+
+        horizontalLayout = new QHBoxLayout();
+        horizontalLayout->setObjectName("horizontalLayout");
+        powerPlot = new PowerPlot(groupBox_4);
+        powerPlot->setObjectName("powerPlot");
+
+        horizontalLayout->addWidget(powerPlot);
+
+        gridLayout_9 = new QGridLayout();
+        gridLayout_9->setObjectName("gridLayout_9");
+        verticalSpacer_6 = new QSpacerItem(20, 40, QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Expanding);
+
+        gridLayout_9->addItem(verticalSpacer_6, 3, 0, 1, 2);
+
+        label_5 = new QLabel(groupBox_4);
+        label_5->setObjectName("label_5");
+
+        gridLayout_9->addWidget(label_5, 0, 0, 1, 1);
+
+        lbRPFreq = new QLabel(groupBox_4);
+        lbRPFreq->setObjectName("lbRPFreq");
+
+        gridLayout_9->addWidget(lbRPFreq, 0, 1, 1, 1);
+
+        label_12 = new QLabel(groupBox_4);
+        label_12->setObjectName("label_12");
+
+        gridLayout_9->addWidget(label_12, 1, 0, 1, 1);
+
+        label_14 = new QLabel(groupBox_4);
+        label_14->setObjectName("label_14");
+
+        gridLayout_9->addWidget(label_14, 2, 0, 1, 1);
+
+        lbRPMax = new QLabel(groupBox_4);
+        lbRPMax->setObjectName("lbRPMax");
+
+        gridLayout_9->addWidget(lbRPMax, 1, 1, 1, 1);
+
+        lbRPMin = new QLabel(groupBox_4);
+        lbRPMin->setObjectName("lbRPMin");
+
+        gridLayout_9->addWidget(lbRPMin, 2, 1, 1, 1);
+
+
+        horizontalLayout->addLayout(gridLayout_9);
+
+        horizontalLayout->setStretch(0, 5);
+        horizontalLayout->setStretch(1, 1);
+
+        gridLayout_7->addLayout(horizontalLayout, 0, 0, 1, 3);
 
 
         gridLayout_3->addWidget(groupBox_4, 0, 0, 1, 1);
@@ -155,6 +211,8 @@ public:
 
         gridLayout_3->addWidget(groupBox_5, 1, 0, 1, 1);
 
+        gridLayout_3->setRowStretch(0, 1);
+        gridLayout_3->setRowStretch(1, 1);
         tabWidget->addTab(tabRadiationPattern, QString());
 
         gridLayout->addWidget(tabWidget, 1, 1, 2, 1);
@@ -363,6 +421,12 @@ public:
         groupBox_4->setTitle(QCoreApplication::translate("MainWindow", "Radiation pattern", nullptr));
         lbMinFreq->setText(QCoreApplication::translate("MainWindow", "-", nullptr));
         lbMaxFreq->setText(QCoreApplication::translate("MainWindow", "-", nullptr));
+        label_5->setText(QCoreApplication::translate("MainWindow", "Frequency", nullptr));
+        lbRPFreq->setText(QCoreApplication::translate("MainWindow", "-", nullptr));
+        label_12->setText(QCoreApplication::translate("MainWindow", "Max", nullptr));
+        label_14->setText(QCoreApplication::translate("MainWindow", "Min", nullptr));
+        lbRPMax->setText(QCoreApplication::translate("MainWindow", "-", nullptr));
+        lbRPMin->setText(QCoreApplication::translate("MainWindow", "-", nullptr));
         groupBox_5->setTitle(QCoreApplication::translate("MainWindow", "Max Emissions", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(tabRadiationPattern), QCoreApplication::translate("MainWindow", "Radiation Pattern", nullptr));
         groupBox->setTitle(QCoreApplication::translate("MainWindow", "Spectrum Analyzer", nullptr));
