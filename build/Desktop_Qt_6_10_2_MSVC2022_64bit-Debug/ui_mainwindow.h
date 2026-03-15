@@ -12,6 +12,7 @@
 #include <QtCore/QVariant>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QCheckBox>
+#include <QtWidgets/QComboBox>
 #include <QtWidgets/QDoubleSpinBox>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QGroupBox>
@@ -44,7 +45,6 @@ public:
     QGroupBox *groupBox;
     QGridLayout *gridLayout_6;
     QCheckBox *sbSALNA;
-    QDoubleSpinBox *sbSARBW;
     QLabel *lbSAStatus;
     QLabel *label_10;
     QLabel *label_8;
@@ -56,6 +56,7 @@ public:
     QSpacerItem *verticalSpacer_2;
     QDoubleSpinBox *sbSACenterFreq;
     QLabel *label_9;
+    QComboBox *cbRBW;
     QGroupBox *groupBox_2;
     QGridLayout *gridLayout_5;
     QLabel *label_3;
@@ -121,13 +122,6 @@ public:
 
         gridLayout_6->addWidget(sbSALNA, 5, 1, 1, 1);
 
-        sbSARBW = new QDoubleSpinBox(groupBox);
-        sbSARBW->setObjectName("sbSARBW");
-        sbSARBW->setMaximum(10000.000000000000000);
-        sbSARBW->setValue(100.000000000000000);
-
-        gridLayout_6->addWidget(sbSARBW, 3, 1, 1, 1);
-
         lbSAStatus = new QLabel(groupBox);
         lbSAStatus->setObjectName("lbSAStatus");
 
@@ -188,6 +182,11 @@ public:
         label_9->setObjectName("label_9");
 
         gridLayout_6->addWidget(label_9, 2, 0, 1, 1);
+
+        cbRBW = new QComboBox(groupBox);
+        cbRBW->setObjectName("cbRBW");
+
+        gridLayout_6->addWidget(cbRBW, 3, 1, 1, 1);
 
 
         gridLayout->addWidget(groupBox, 1, 0, 1, 1);

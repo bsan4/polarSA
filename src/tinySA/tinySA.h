@@ -19,7 +19,7 @@ public:
     {
         QString mode = "low";          // "low" or "high"
         int attenuationDb = -1;        // -1 => auto, else 0..31
-        int rbwKHz = -1;               // -1 => auto, else 3..600
+        float rbwKHz = -1;               // -1 => auto, else 3..600
         int repeatCount = 1;           // 1..1000
         bool spurReduction = false;    // spur on/off
         float extGainDb = 0.0f;        // -100..100
@@ -71,7 +71,7 @@ private:
 
     bool setMode(const QString &mode);
     bool setAttenuationAutoOrDb(int attenuationDb);
-    bool setRbwAutoOrKHz(int rbwKHz);
+    bool setRbwAutoOrKHz(float rbwKHz);
     bool setRepeat(int repeatCount);
     bool setSpur(bool enabled);
     bool setExtGain(float db);

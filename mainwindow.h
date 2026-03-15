@@ -27,5 +27,17 @@ private:
     Ui::MainWindow *ui;
     TinySA tinySA;
     Rotator rotator;
+
+    const QList<QPair<QString, float>> rbwMap = {
+        QPair<QString, float>("Auto", -1),
+        QPair<QString, float>("200Hz", 0.2),
+        QPair<QString, float>("1kHz", 1),
+        QPair<QString, float>("3kHz", 3),
+        QPair<QString, float>("10kHz", 10),
+        QPair<QString, float>("30kHz", 30),
+        QPair<QString, float>("100kHz", 100),
+        QPair<QString, float>("600kHz", 600),
+        QPair<QString, float>("850kHz", 850)
+    };
 };
 #endif // MAINWINDOW_H

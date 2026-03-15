@@ -9,6 +9,12 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     setWindowTitle("polarSA - Beta 1.0.0");
 
+    // Setup rbw combobox
+    for( QPair<QString, float> elt : rbwMap)
+    {
+        ui->cbRBW->addItem(elt.first);
+    }
+
     connect( ui->pbSingleCapture, &QPushButton::pressed, this, &MainWindow::triggerSingleCapture );
     connect( ui->pbSequenceCapture, &QPushButton::pressed, this, &MainWindow::triggerSequenceCapture );
 
@@ -89,10 +95,19 @@ void MainWindow::triggerSequenceCapture()
 
 void MainWindow::sendSAParameters()
 {
+    float rbwkHz = -1;
+    for( QPair<QString, float> elt : rbwMap)
+    {
+        if ( elt.first == ui->cbRBW->currentText() )
+        {
+            rbwkHz = elt.second;
+        }
+    }
+
     TinySA::Setup s;
     s.mode = "low";
     s.attenuationDb = ui->sbSAAtt->value();      // or -1 for auto
-    s.rbwKHz = ui->sbSARBW->value();            // or -1 for auto
+    s.rbwKHz = rbwkHz;            // or -1 for auto
     s.repeatCount = 1;
     s.spurReduction = false;
     s.extGainDb = 0.0f;

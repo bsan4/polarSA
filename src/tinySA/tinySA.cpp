@@ -401,12 +401,12 @@ bool TinySA::setAttenuationAutoOrDb(int attenuationDb)
     return sendCommandExpectQuiet(QString("attenuate %1").arg(attenuationDb));
 }
 
-bool TinySA::setRbwAutoOrKHz(int rbwKHz)
+bool TinySA::setRbwAutoOrKHz(float rbwKHz)
 {
     if (rbwKHz < 0)
         return sendCommandExpectQuiet("rbw auto");
 
-    if (rbwKHz < 3 || rbwKHz > 600)
+    if (rbwKHz < 0.2 || rbwKHz > 850)
     {
         qDebug() << "RBW out of range";
         return false;
