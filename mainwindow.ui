@@ -18,7 +18,7 @@
     <item row="1" column="1" rowspan="2">
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tabSpectrum">
        <attribute name="title">
@@ -36,7 +36,28 @@
        </attribute>
        <layout class="QGridLayout" name="gridLayout_3">
         <item row="0" column="0">
-         <widget class="PowerPlot" name="powerPlot" native="true"/>
+         <widget class="QGroupBox" name="groupBox_4">
+          <property name="title">
+           <string>Radiation pattern</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_7">
+           <item row="0" column="0">
+            <widget class="PowerPlot" name="powerPlot" native="true"/>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QGroupBox" name="groupBox_5">
+          <property name="title">
+           <string>Max Emissions</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_8">
+           <item row="0" column="0">
+            <widget class="SpectrumPlot" name="maxSpectrumPlot" native="true"/>
+           </item>
+          </layout>
+         </widget>
         </item>
        </layout>
       </widget>

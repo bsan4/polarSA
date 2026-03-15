@@ -73,6 +73,7 @@ void MainWindow::triggerSequenceCapture()
     sendRotatorParameters();
 
     RadiationPattern rp;
+    PowerSpectrum maxPs;
     int startAngle = ui->sbRotatorStart->value();
     int endAngle = ui->sbRotatorEnd->value();
     int angleStep = ui->sbRotatorStep->value();
@@ -95,6 +96,15 @@ void MainWindow::triggerSequenceCapture()
             a += angleStep;
             ui->spectrumPlot->setPowerSpectrum(ps);
             ui->powerPlot->setRadiationPattern(rp);
+            if ( maxPs.power.isEmpty() ) maxPs = ps;
+            for( int i = 0; i < rp.power.count(); i++ )
+            {
+                if ( maxPs.power.at(i) < ps.power.at(i) )
+                {
+                    maxPs.power[i] = ps.power.at(i);
+                }
+            }
+            ui->maxSpectrumPlot->setPowerSpectrum(maxPs);
         }
         QApplication::processEvents();
     }

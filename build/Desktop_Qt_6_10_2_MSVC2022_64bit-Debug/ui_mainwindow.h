@@ -41,7 +41,12 @@ public:
     SpectrumPlot *spectrumPlot;
     QWidget *tabRadiationPattern;
     QGridLayout *gridLayout_3;
+    QGroupBox *groupBox_4;
+    QGridLayout *gridLayout_7;
     PowerPlot *powerPlot;
+    QGroupBox *groupBox_5;
+    QGridLayout *gridLayout_8;
+    SpectrumPlot *maxSpectrumPlot;
     QGroupBox *groupBox;
     QGridLayout *gridLayout_6;
     QCheckBox *sbSALNA;
@@ -106,10 +111,29 @@ public:
         tabRadiationPattern->setObjectName("tabRadiationPattern");
         gridLayout_3 = new QGridLayout(tabRadiationPattern);
         gridLayout_3->setObjectName("gridLayout_3");
-        powerPlot = new PowerPlot(tabRadiationPattern);
+        groupBox_4 = new QGroupBox(tabRadiationPattern);
+        groupBox_4->setObjectName("groupBox_4");
+        gridLayout_7 = new QGridLayout(groupBox_4);
+        gridLayout_7->setObjectName("gridLayout_7");
+        powerPlot = new PowerPlot(groupBox_4);
         powerPlot->setObjectName("powerPlot");
 
-        gridLayout_3->addWidget(powerPlot, 0, 0, 1, 1);
+        gridLayout_7->addWidget(powerPlot, 0, 0, 1, 1);
+
+
+        gridLayout_3->addWidget(groupBox_4, 0, 0, 1, 1);
+
+        groupBox_5 = new QGroupBox(tabRadiationPattern);
+        groupBox_5->setObjectName("groupBox_5");
+        gridLayout_8 = new QGridLayout(groupBox_5);
+        gridLayout_8->setObjectName("gridLayout_8");
+        maxSpectrumPlot = new SpectrumPlot(groupBox_5);
+        maxSpectrumPlot->setObjectName("maxSpectrumPlot");
+
+        gridLayout_8->addWidget(maxSpectrumPlot, 0, 0, 1, 1);
+
+
+        gridLayout_3->addWidget(groupBox_5, 1, 0, 1, 1);
 
         tabWidget->addTab(tabRadiationPattern, QString());
 
@@ -306,7 +330,7 @@ public:
 
         retranslateUi(MainWindow);
 
-        tabWidget->setCurrentIndex(0);
+        tabWidget->setCurrentIndex(1);
 
 
         QMetaObject::connectSlotsByName(MainWindow);
@@ -316,6 +340,8 @@ public:
     {
         MainWindow->setWindowTitle(QCoreApplication::translate("MainWindow", "MainWindow", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(tabSpectrum), QCoreApplication::translate("MainWindow", "Spectrum", nullptr));
+        groupBox_4->setTitle(QCoreApplication::translate("MainWindow", "Radiation pattern", nullptr));
+        groupBox_5->setTitle(QCoreApplication::translate("MainWindow", "Max Emissions", nullptr));
         tabWidget->setTabText(tabWidget->indexOf(tabRadiationPattern), QCoreApplication::translate("MainWindow", "Radiation Pattern", nullptr));
         groupBox->setTitle(QCoreApplication::translate("MainWindow", "Spectrum Analyzer", nullptr));
         sbSALNA->setText(QString());
