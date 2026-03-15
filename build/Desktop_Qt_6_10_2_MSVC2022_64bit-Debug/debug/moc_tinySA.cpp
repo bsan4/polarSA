@@ -39,8 +39,10 @@ template <> constexpr inline auto TinySA::qt_create_metaobjectdata<qt_meta_tag_Z
     namespace QMC = QtMocConstants;
     QtMocHelpers::StringRefStorage qt_stringData {
         "TinySA",
-        "pollConnection",
+        "connected",
         "",
+        "disconnected",
+        "pollConnection",
         "onSerialReadyRead",
         "onPortError",
         "QSerialPort::SerialPortError",
@@ -48,13 +50,17 @@ template <> constexpr inline auto TinySA::qt_create_metaobjectdata<qt_meta_tag_Z
     };
 
     QtMocHelpers::UintData qt_methods {
+        // Signal 'connected'
+        QtMocHelpers::SignalData<void()>(1, 2, QMC::AccessPublic, QMetaType::Void),
+        // Signal 'disconnected'
+        QtMocHelpers::SignalData<void()>(3, 2, QMC::AccessPublic, QMetaType::Void),
         // Slot 'pollConnection'
-        QtMocHelpers::SlotData<void()>(1, 2, QMC::AccessPrivate, QMetaType::Void),
+        QtMocHelpers::SlotData<void()>(4, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onSerialReadyRead'
-        QtMocHelpers::SlotData<void()>(3, 2, QMC::AccessPrivate, QMetaType::Void),
+        QtMocHelpers::SlotData<void()>(5, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onPortError'
-        QtMocHelpers::SlotData<void(QSerialPort::SerialPortError)>(4, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { 0x80000000 | 5, 6 },
+        QtMocHelpers::SlotData<void(QSerialPort::SerialPortError)>(6, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { 0x80000000 | 7, 8 },
         }}),
     };
     QtMocHelpers::UintData qt_properties {
@@ -79,11 +85,19 @@ void TinySA::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void
     auto *_t = static_cast<TinySA *>(_o);
     if (_c == QMetaObject::InvokeMetaMethod) {
         switch (_id) {
-        case 0: _t->pollConnection(); break;
-        case 1: _t->onSerialReadyRead(); break;
-        case 2: _t->onPortError((*reinterpret_cast<std::add_pointer_t<QSerialPort::SerialPortError>>(_a[1]))); break;
+        case 0: _t->connected(); break;
+        case 1: _t->disconnected(); break;
+        case 2: _t->pollConnection(); break;
+        case 3: _t->onSerialReadyRead(); break;
+        case 4: _t->onPortError((*reinterpret_cast<std::add_pointer_t<QSerialPort::SerialPortError>>(_a[1]))); break;
         default: ;
         }
+    }
+    if (_c == QMetaObject::IndexOfMethod) {
+        if (QtMocHelpers::indexOfMethod<void (TinySA::*)()>(_a, &TinySA::connected, 0))
+            return;
+        if (QtMocHelpers::indexOfMethod<void (TinySA::*)()>(_a, &TinySA::disconnected, 1))
+            return;
     }
 }
 
@@ -106,15 +120,27 @@ int TinySA::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 3)
+        if (_id < 5)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 3;
+        _id -= 5;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 3)
+        if (_id < 5)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 3;
+        _id -= 5;
     }
     return _id;
+}
+
+// SIGNAL 0
+void TinySA::connected()
+{
+    QMetaObject::activate(this, &staticMetaObject, 0, nullptr);
+}
+
+// SIGNAL 1
+void TinySA::disconnected()
+{
+    QMetaObject::activate(this, &staticMetaObject, 1, nullptr);
 }
 QT_WARNING_POP

@@ -12,19 +12,21 @@ DEFINES += QCUSTOMPLOT_USE_OPENGL
 
 SOURCES += \
     main.cpp \
-    mainwindow.cpp \
     lib/QCustomPlot/qcustomplot.cpp \
     src/PowerPlot/powerplot.cpp \
+    src/Rotator/rotator.cpp \
     src/SpectrumPlot/spectrumplot.cpp \
-    src/tinySA/tinySA.cpp
+    src/tinySA/tinySA.cpp \
+    mainwindow.cpp
 
 HEADERS += \
     inc/defines.h \
-    mainwindow.h \
     lib/QCustomPlot/qcustomplot.h \
     src/PowerPlot/powerplot.h \
+    src/Rotator/rotator.h \
     src/SpectrumPlot/spectrumplot.h \
-    src/tinySA/tinySA.h
+    src/tinySA/tinySA.h \
+    mainwindow.h
 
 FORMS += \
     mainwindow.ui

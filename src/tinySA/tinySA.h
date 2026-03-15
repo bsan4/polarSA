@@ -46,6 +46,10 @@ public:
 
     void setSetup(const Setup &setup);
 
+signals:
+    void connected();
+    void disconnected();
+
 private slots:
     void pollConnection();
     void onSerialReadyRead();
@@ -56,6 +60,7 @@ private:
     bool sendCommandExpectQuiet(const QString &cmd, int settleMs = 50);
 
     QByteArray readExact(int byteCount, int timeoutMs);
+    QByteArray readUntil(const char endOfText, int timeoutMs);
     QByteArray readUntilByte(char terminator, int timeoutMs);
     void clearPendingInput();
 

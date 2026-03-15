@@ -17,8 +17,6 @@ TinySA::TinySA(QObject *parent)
     pollTimer.setInterval(portPollIntervalMs);
     connect(&pollTimer, &QTimer::timeout, this, &TinySA::pollConnection);
     pollTimer.start();
-    // Manually connect
-    pollConnection();
 }
 
 TinySA::~TinySA()
@@ -125,13 +123,14 @@ PowerSpectrum TinySA::capture()
 
     // The device echoes commands, so the command will be part of the output buffer
     // 4 is for "ch> " that is printed as well
-    int echoLength = 4 + cmd.length() + commandEol.length();
+    int echoLength = cmd.length() + commandEol.length();
 
     int pointsBytes = 3 * points; // each data point is x LSB MSB, total 3 bytes
 
-    QByteArray raw = readExact( echoLength + 1 + pointsBytes + 1 + 4, 15000);
-    raw.remove(0, echoLength);
-    if (raw.size() != (1 + pointsBytes + 1 + 4))
+    QByteArray raw = readUntil( '}', 15000);
+    if (raw.left(4) == "ch> ") raw.remove(0, 4);
+    if (raw.left(echoLength) == cmd + commandEol) raw.remove(0, echoLength);
+    if (raw.size() < (1 + pointsBytes + 1))
     {
         qDebug() << "scanraw: incomplete frame, got" << raw.size() << "bytes";
         return spec;
@@ -176,8 +175,13 @@ PowerSpectrum TinySA::capture()
 
 void TinySA::pollConnection()
 {
-    if (isConnected)
+    if (isConnected && port.isOpen())
         return;
+    if (isConnected && !port.isOpen())
+    {
+        isConnected = false;
+        emit disconnected();
+    }
 
     for (const QSerialPortInfo &info : QSerialPortInfo::availablePorts())
     {
@@ -200,11 +204,13 @@ void TinySA::pollConnection()
                 qDebug() << "Serial opened";
                 isConnected = true;
                 clearPendingInput();
+                emit connected();
             }
             else
             {
                 qDebug() << "Open failed:" << port.errorString();
                 isConnected = false;
+                emit disconnected();
             }
 
             return;
@@ -226,6 +232,7 @@ void TinySA::onPortError(QSerialPort::SerialPortError error)
         if (port.isOpen())
             port.close();
         portBuffer.clear();
+        emit disconnected();
     }
 }
 
@@ -263,6 +270,19 @@ QByteArray TinySA::readExact(int byteCount, int timeoutMs)
     t.start();
 
     while (portBuffer.size() < byteCount && t.elapsed() < timeoutMs)
+    {
+        QCoreApplication::processEvents();
+    }
+
+    return portBuffer;
+}
+
+QByteArray TinySA::readUntil(const char endOfText, int timeoutMs)
+{
+    QElapsedTimer t;
+    t.start();
+
+    while ( !portBuffer.contains(endOfText) && t.elapsed() < timeoutMs)
     {
         QCoreApplication::processEvents();
     }

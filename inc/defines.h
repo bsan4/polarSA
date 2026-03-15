@@ -10,4 +10,13 @@ public:
     QVector<float> freq;
 };
 
+
+class RadiationPattern
+{
+public:
+    QVector<float> power;   // dBm or relative dB
+    QVector<float> angles;  // degrees
+};
+
+
 #endif

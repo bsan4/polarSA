@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include "src/tinySA/tinySA.h"
+#include "src/Rotator/rotator.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -19,7 +20,12 @@ public:
     ~MainWindow();
 
 private:
+    Q_SLOT void triggerSingleCapture();
+    Q_SLOT void triggerSequenceCapture();
+    void sendSAParameters();
+    void sendRotatorParameters();
     Ui::MainWindow *ui;
     TinySA tinySA;
+    Rotator rotator;
 };
 #endif // MAINWINDOW_H
