@@ -17,7 +17,6 @@ class TinySA : public QObject
 public:
     struct Setup
     {
-        // Only fields backed by the provided USB doc are included here.
         QString mode = "low";          // "low" or "high"
         int attenuationDb = -1;        // -1 => auto, else 0..31
         int rbwKHz = -1;               // -1 => auto, else 3..600
@@ -28,7 +27,7 @@ public:
         quint64 centerHz = 0;
         quint64 spanHz = 0;
 
-        int points = 290;              // scan max is 290, scanraw unlimited
+        int points = 290;              // tinySA scan max is 290, scanraw can do more
         float rawOffsetDb = 174.0f;    // 128=tinySA, 174=tinySA Ultra
     };
 
@@ -37,11 +36,9 @@ public:
 
     bool isOpen() const;
 
-    // Applies only commands explicitly documented on the USB page.
     bool setDefaults();
     bool applySetup(const Setup &setup);
 
-    // Capture using scanraw, decoded into PowerSpectrum.
     PowerSpectrum capture();
 
     void setSetup(const Setup &setup);
@@ -59,10 +56,18 @@ private:
     bool sendCommand(const QString &cmd);
     bool sendCommandExpectQuiet(const QString &cmd, int settleMs = 50);
 
-    QByteArray readExact(int byteCount, int timeoutMs);
-    QByteArray readUntil(const char endOfText, int timeoutMs);
-    QByteArray readUntilByte(char terminator, int timeoutMs);
+    bool waitForIncomingData(int timeoutMs);
+    bool waitForBufferSize(int minBytes, int timeoutMs);
+    bool discardUntilByte(char target, int timeoutMs);
+    QByteArray takeFromBuffer(int count);
     void clearPendingInput();
+
+    bool readScanrawFrame(int points, QByteArray &frame, int timeoutMs);
+    bool decodeScanrawFrame(const QByteArray &frame,
+                            quint64 startHz,
+                            quint64 stopHz,
+                            int points,
+                            PowerSpectrum &spec) const;
 
     bool setMode(const QString &mode);
     bool setAttenuationAutoOrDb(int attenuationDb);
@@ -72,6 +77,9 @@ private:
     bool setExtGain(float db);
     bool setSweepCenter(quint64 centerHz);
     bool setSweepSpan(quint64 spanHz);
+    QByteArray readExact(int byteCount, int timeoutMs);
+    QByteArray readUntil(const char endOfText, int timeoutMs);
+    QByteArray readUntilByte(char terminator, int timeoutMs);
 
 private:
     const int portPollIntervalMs = 500;
@@ -79,6 +87,7 @@ private:
     const quint16 portPID = 0x5740;
 
     const QByteArray commandEol = "\r\n";
+    const QByteArray prompt = "ch> ";
 
     QSerialPort port;
     QByteArray portBuffer;

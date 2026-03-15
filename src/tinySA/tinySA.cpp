@@ -48,8 +48,6 @@ bool TinySA::applySetup(const Setup &setup)
         return false;
     }
 
-    // Stop auto-refresh traffic if it is on, then pause sweeping before reconfiguration.
-    // Both commands are documented on the USB page.
     if (!sendCommandExpectQuiet("refresh off")) return false;
     if (!sendCommandExpectQuiet("pause")) return false;
 
@@ -100,43 +98,78 @@ PowerSpectrum TinySA::capture()
         return spec;
     }
 
-    clearPendingInput();
-
-    // scanraw format from doc:
-    // '{' ('x' LSB MSB)*points '}' Note that LSB and MSB are reverted compared to doc
-    // dBm = raw16/32 - 128   for tinySA
-    // dBm = raw16/32 - 174   for tinySA Ultra
-    //
-    // We use option 0 to avoid continuous/unbuffered variants.
     const QString cmd = QString("scanraw %1 %2 %3")
                             .arg(startHz)
                             .arg(stopHz)
                             .arg(points);
+
+    // Remove stale leftovers before issuing the binary command.
+    clearPendingInput();
 
     if (!sendCommand(cmd))
     {
         qDebug() << "Failed to send scanraw";
         return spec;
     }
-    clearPendingInput();
 
+    // Expected raw frame:
+    // '{' ('x' LSB MSB) * points '}'
+    const int expectedSize = 1 + 3 * points + 1;
 
-    // The device echoes commands, so the command will be part of the output buffer
-    // 4 is for "ch> " that is printed as well
-    int echoLength = cmd.length() + commandEol.length();
+    // 1) Synchronize on the opening brace, discarding text echoes/prompts/garbage
+    QElapsedTimer syncTimer;
+    syncTimer.start();
 
-    int pointsBytes = 3 * points; // each data point is x LSB MSB, total 3 bytes
-
-    QByteArray raw = readUntil( '}', 15000);
-    if (raw.left(4) == "ch> ") raw.remove(0, 4);
-    if (raw.left(echoLength) == cmd + commandEol) raw.remove(0, echoLength);
-    if (raw.size() < (1 + pointsBytes + 1))
+    while (syncTimer.elapsed() < 15000)
     {
-        qDebug() << "scanraw: incomplete frame, got" << raw.size() << "bytes";
+        int idx = portBuffer.indexOf('{');
+        if (idx >= 0)
+        {
+            if (idx > 0)
+                portBuffer.remove(0, idx);
+            break;
+        }
+
+        // No start byte yet. Discard stale text already in buffer so we don't
+        // keep re-checking the same "ch> ..." forever.
+        if (!portBuffer.isEmpty())
+            portBuffer.clear();
+
+        if (port.waitForReadyRead(50))
+            portBuffer += port.readAll();
+        else
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+    }
+
+    if (portBuffer.isEmpty() || portBuffer.front() != '{')
+    {
+        qDebug() << "scanraw: did not find frame start. buffer =" << portBuffer;
         return spec;
     }
 
-    if (raw.front() != '{' || raw.at(1 + pointsBytes) != '}')
+    // 2) Wait for the exact packet length from the opening '{'
+    QElapsedTimer dataTimer;
+    dataTimer.start();
+
+    while (portBuffer.size() < expectedSize && dataTimer.elapsed() < 15000)
+    {
+        if (port.waitForReadyRead(50))
+            portBuffer += port.readAll();
+        else
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+    }
+
+    if (portBuffer.size() < expectedSize)
+    {
+        qDebug() << "scanraw: incomplete frame, got" << portBuffer.size()
+        << "expected at least" << expectedSize;
+        return spec;
+    }
+
+    QByteArray raw = portBuffer.left(expectedSize);
+    portBuffer.remove(0, expectedSize);
+
+    if (raw.front() != '{' || raw.back() != '}')
     {
         qDebug() << "scanraw: bad framing";
         return spec;
@@ -150,10 +183,18 @@ PowerSpectrum TinySA::capture()
     int pos = 1;
     for (int i = 0; i < points; ++i)
     {
+        if (pos + 2 >= raw.size())
+        {
+            qDebug() << "scanraw: truncated payload at point" << i;
+            spec.freq.clear();
+            spec.power.clear();
+            return spec;
+        }
+
         const char tag = raw.at(pos++);
         if (tag != 'x')
         {
-            qDebug() << "scanraw: unexpected sample tag at index" << i << ":" << tag;
+            qDebug() << "scanraw: unexpected sample tag at index" << i << ":" << int(quint8(tag));
             spec.freq.clear();
             spec.power.clear();
             return spec;
@@ -225,9 +266,11 @@ void TinySA::onSerialReadyRead()
 
 void TinySA::onPortError(QSerialPort::SerialPortError error)
 {
-    if (error == QSerialPort::ResourceError)
+    if (error == QSerialPort::ResourceError ||
+        error == QSerialPort::DeviceNotFoundError ||
+        error == QSerialPort::PermissionError)
     {
-        qDebug() << "Serial disconnected:" << port.errorString();
+        qDebug() << "Serial disconnected/error:" << port.errorString();
         isConnected = false;
         if (port.isOpen())
             port.close();
@@ -256,11 +299,23 @@ bool TinySA::sendCommandExpectQuiet(const QString &cmd, int settleMs)
     if (!sendCommand(cmd))
         return false;
 
-    // The USB doc does not define a universal textual ACK/response format for all commands,
-    // so we avoid parsing undocumented replies here and just let the UART settle.
+    // Drain command echo / prompt / any textual reply for a short time.
     if (settleMs > 0)
-        QThread::msleep(settleMs);
+    {
+        QElapsedTimer t;
+        t.start();
 
+        while (t.elapsed() < settleMs)
+        {
+            if (port.waitForReadyRead(10))
+                portBuffer += port.readAll();
+
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+        }
+    }
+
+    // We do not want setup-command echoes to pollute the next binary scanraw read.
+    portBuffer.clear();
     return true;
 }
 
@@ -271,10 +326,15 @@ QByteArray TinySA::readExact(int byteCount, int timeoutMs)
 
     while (portBuffer.size() < byteCount && t.elapsed() < timeoutMs)
     {
-        QCoreApplication::processEvents();
+        if (port.waitForReadyRead(50))
+            portBuffer += port.readAll();
+        else
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
     }
 
-    return portBuffer;
+    QByteArray out = portBuffer.left(byteCount);
+    portBuffer.remove(0, out.size());
+    return out;
 }
 
 QByteArray TinySA::readUntil(const char endOfText, int timeoutMs)
@@ -282,41 +342,32 @@ QByteArray TinySA::readUntil(const char endOfText, int timeoutMs)
     QElapsedTimer t;
     t.start();
 
-    while ( !portBuffer.contains(endOfText) && t.elapsed() < timeoutMs)
+    while (!portBuffer.contains(endOfText) && t.elapsed() < timeoutMs)
     {
-        QCoreApplication::processEvents();
+        if (port.waitForReadyRead(50))
+            portBuffer += port.readAll();
+        else
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
     }
 
-    return portBuffer;
+    int idx = portBuffer.indexOf(endOfText);
+    if (idx < 0)
+        return QByteArray();
+
+    QByteArray out = portBuffer.left(idx + 1);
+    portBuffer.remove(0, idx + 1);
+    return out;
 }
 
 QByteArray TinySA::readUntilByte(char terminator, int timeoutMs)
 {
-    QByteArray out;
-
-    QElapsedTimer t;
-    t.start();
-
-    while (t.elapsed() < timeoutMs)
-    {
-        if (port.bytesAvailable() > 0 || port.waitForReadyRead(50))
-        {
-            out += port.readAll();
-            if (out.contains(terminator))
-                return out;
-        }
-        else
-        {
-            QCoreApplication::processEvents();
-        }
-    }
-
-    return out;
+    return readUntil(terminator, timeoutMs);
 }
 
 void TinySA::clearPendingInput()
 {
     portBuffer.clear();
+
     if (port.isOpen())
     {
         port.clear(QSerialPort::Input);
