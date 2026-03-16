@@ -150,4 +150,6 @@ The goal is to provide useful RF measurement tools with modest but capable EMC l
 # License
 GPLV3
 
+# About
+Designed and maintained by Quantor Innovation https://quantor.fr/ 
 
