@@ -1,5 +1,7 @@
 # polarSA
 
+![alt text](https://github.com/bsan4/polarSA/blob/b2d26cbe5efdd30f7a57d8f71b692da966fb4316/rsc/polarsa.svg)
+
 **polarSA** is a measurement and visualization tool for RF engineers working with the **tinySA Ultra spectrum analyzer** and a **rotating DUT platform** to characterize antenna radiation patterns and/or intentionnal and unintentional radiations.
 
 The software records spectra while the DUT rotates and produces **polar radiation diagrams**, **maximum-hold emission spectra**, and other useful visualizations for RF analysis and pre-compliance work.
@@ -7,6 +9,8 @@ The software records spectra while the DUT rotates and produces **polar radiatio
 The goal of polarSA is :
  - to provide antenna radiation pattern automated measurement for hardware debugging
  - to provide functionality similar to what EMC labs do during compliance testing, but with **portable and low-cost equipment** (for pre-compliance or EMC fixes)
+
+![alt text](https://github.com/bsan4/polarSA/blob/b2d26cbe5efdd30f7a57d8f71b692da966fb4316/rsc/example_radiation.png)
 
 ---
 
