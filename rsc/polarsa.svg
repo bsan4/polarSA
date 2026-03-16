@@ -1,0 +1,49 @@
+<svg width="512" height="220" viewBox="0 0 512 220" xmlns="http://www.w3.org/2000/svg">
+
+<style>
+.gridMajor { stroke:#6a6a6a; stroke-width:1.5; fill:none; opacity:0.9 }
+.gridMinor { stroke:#444; stroke-width:1.2; fill:none; opacity:0.7; }
+.lobe { fill:#b14cff; opacity:0.9; }
+
+.text { font-family:"Inter","Segoe UI",sans-serif; font-size:72px; font-weight:500; }
+.textMain { fill:#e6e6e6; }
+.textAccent { fill:#b14cff; }
+</style>
+
+<g transform="translate(110,110)">
+
+  <!-- outer ring -->
+  <circle class="gridMajor" r="82"></circle>
+
+  <!-- major rings -->
+  <circle class="gridMajor" r="55"></circle>
+  <circle class="gridMajor" r="28"></circle>
+
+  <!-- minor rings -->
+  <circle class="gridMinor" r="70"></circle>
+  <circle class="gridMinor" r="42"></circle>
+
+  <!-- major axes -->
+  <line class="gridMajor" x1="-82" y1="0" x2="82" y2="0"></line>
+  <line class="gridMajor" x1="0" y1="-82" x2="0" y2="82"></line>
+
+  <!-- minor angular lines -->
+  <line class="gridMinor" x1="-58" y1="-58" x2="58" y2="58"></line>
+  <line class="gridMinor" x1="-58" y1="58" x2="58" y2="-58"></line>
+
+  <line class="gridMinor" x1="-76" y1="-30" x2="76" y2="30"></line>
+  <line class="gridMinor" x1="-76" y1="30" x2="76" y2="-30"></line>
+
+  <!-- radiation lobe -->
+  <path class="lobe" d="M0,-10
+           C30,-70 60,-70 90,-10
+           C60,-22 30,-22 0,-10 Z"></path>
+
+</g>
+
+<text class="text" x="220" y="135">
+  <tspan class="textMain">polar</tspan>
+  <tspan class="textAccent" dx="-12">SA</tspan>
+</text>
+
+</svg>

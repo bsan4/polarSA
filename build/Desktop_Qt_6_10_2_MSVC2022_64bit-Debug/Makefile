@@ -33,7 +33,7 @@ IDC           = idc
 IDL           = midl
 ZIP           = zip -r -9
 DEF_FILE      = 
-RES_FILE      = 
+RES_FILE      = PolarSA_resource.res
 SED           = $(QMAKE) -install sed
 MOVE          = move
 SUBTARGETS    =  \
@@ -350,6 +350,7 @@ Makefile: ..\..\PolarSA.pro C:\Qt\6.10.2\msvc2022_64\mkspecs\win32-msvc\qmake.co
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6Core.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6EntryPoint.prl \
 		C:\Qt\6.10.2\msvc2022_64\mkspecs\features\build_pass.prf \
+		..\..\rsc\rsc.qrc \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6PrintSupportd.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6Widgetsd.prl \
 		C:\Qt\6.10.2\msvc2022_64\lib\Qt6OpenGLd.prl \
@@ -624,6 +625,7 @@ C:\Qt\6.10.2\msvc2022_64\lib\Qt6SerialPort.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6Core.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6EntryPoint.prl:
 C:\Qt\6.10.2\msvc2022_64\mkspecs\features\build_pass.prf:
+..\..\rsc\rsc.qrc:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6PrintSupportd.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6Widgetsd.prl:
 C:\Qt\6.10.2\msvc2022_64\lib\Qt6OpenGLd.prl:

@@ -8,6 +8,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     setWindowTitle("polarSA - Beta 1.0.0");
+    setWindowIcon(QIcon(":/img/polarsa_notxt.ico"));
 
     // Setup rbw combobox
     for( QPair<QString, float> elt : rbwMap)

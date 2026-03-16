@@ -40,3 +40,13 @@ win32:LIBS += opengl32.lib
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+DISTFILES += \
+    rsc/polarsa.ico \
+    rsc/polarsa_notxt.ico \
+
+
+RC_ICONS = rsc/polarsa_notxt.ico
+
+RESOURCES += \
+    rsc/rsc.qrc
