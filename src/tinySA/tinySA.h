@@ -42,6 +42,15 @@ public:
 
     PowerSpectrum capture();
 
+    // Quasi-peak over a frequency window, with the tinySA's trace 1 "calc quasi" (applied in the normal sweep
+    // processing, not in scanraw): one raw sweep restarts the detector, then `sweeps` quasi-peak sweeps are run
+    // and the last one is returned. Call endQuasiPeak() when the measurement is over.
+    PowerSpectrum captureQuasiPeak(quint64 startHz, quint64 stopHz, int points, int sweeps);
+    void endQuasiPeak();
+
+    // Parses the text output of "scan {start} {stop} {points} 3": "{freq} {level} {0}" per line
+    static PowerSpectrum parseScanText(const QByteArray &text);
+
     void setSetup(const Setup &setup);
 
 signals:
@@ -64,6 +73,8 @@ private:
     void clearPendingInput();
 
     bool readScanrawFrame(int points, QByteArray &frame, int timeoutMs);
+    bool runScan(const QString &cmd, QByteArray *text);
+    QByteArray readUntilPrompt(int timeoutMs);
     bool decodeScanrawFrame(const QByteArray &frame,
                             quint64 startHz,
                             quint64 stopHz,

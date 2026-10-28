@@ -16,6 +16,7 @@ SOURCES += \
     src/Analysis/patternanalysis.cpp \
     src/Corrections/corrections.cpp \
     src/ExportDialog/exportdialog.cpp \
+    src/QuasiPeak/quasipeakdialog.cpp \
     src/Report/pdfattachments.cpp \
     src/Report/pdfreport.cpp \
     src/TraceDialog/tracedialog.cpp \
@@ -31,6 +32,7 @@ HEADERS += \
     src/Analysis/patternanalysis.h \
     src/Corrections/corrections.h \
     src/ExportDialog/exportdialog.h \
+    src/QuasiPeak/quasipeakdialog.h \
     src/Report/pdfattachments.h \
     src/Report/pdfreport.h \
     src/TraceDialog/tracedialog.h \

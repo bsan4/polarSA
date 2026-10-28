@@ -78,10 +78,23 @@ Capture buttons are disabled while a capture runs; **Stop** is only enabled then
 
 ### User Interface
 
-- **Menus**: **File** (Import Trace(s), Export Trace, Export PDF Report, Import / Export Config, Import Calibration, Import Limits, Quit), **Edit** (Clear Imports, Clear Graphs: removes the live capture and keeps the imports, Clear Calibration, Clear Limits) and **Help** (About).
+- **Menus**: **File** (Import Trace(s), Export Trace, Export Quasi-Peak, Export PDF Report, Import / Export Config, Import Calibration, Import Limits, Quit), **Edit** (Clear Imports, Clear Graphs: removes the live capture and keeps the imports, Clear Quasi-Peak, Clear Calibration, Clear Limits) and **Help** (About).
 - **Tabs**: Spectrum (last sweep), Radiation Pattern (polar plot at the frequency cursor), Max Emissions (max hold over all angles). Under the Max Emissions graph, the **Autoscale on update** boxes (X, Y, XY) rescale the axes on every update, and the **Rescale now** buttons rescale once; Y fits the data inside the displayed frequency range, so you can zoom in frequency and then rescale Y. Uncheck autoscale to keep a zoom while data keeps updating.
 - **Right panel**: spectrum analyzer and level settings, rotator angles, capture buttons and the Traces list. The splitter between the graphs and the panel can be dragged.
 - **Status bar**: the config, calibration and limits in use (hover for details).
+
+---
+
+### Quasi-Peak Measurements
+
+Normal captures use the tinySA's fast raw sweep (peak). For emissions close to a limit, **Capture → Quasi-Peak...** measures a narrow frequency window with the tinySA's quasi-peak detector, the way EMC labs re-measure suspect peaks:
+
+- The window is set by center / span or start / stop, with the number of points (450 max) and the **sweeps per angle**. The center defaults to the frequency selected with the cursor (e.g. after **Peak**). RBW, attenuation and LNA come from the Spectrum Analyzer panel (CISPR 16 uses 120 kHz from 30 MHz to 1 GHz; the closest tinySA RBW is 100 kHz).
+- The window is measured at every rotator angle (Rotator start / end / step). At each angle the detector is restarted from a raw sweep, then the quasi-peak sweeps are run and the last one is kept.
+- Each window is added to a separate **Quasi-peak** trace (Traces list): successive windows build a sparse spectrum, and a window overlapping a measured one replaces its points. It is drawn with markers on Max Emissions, shows on the radiation pattern at its frequencies, is compared to the limits and appears in reports. A stopped window is discarded, so every angle keeps the same frequency points.
+- **File → Export Quasi-Peak...** saves it as a regular polarSA CSV (sparse frequency columns), which can be imported again; **Edit → Clear Quasi-Peak** removes it (**Clear Imports** keeps it).
+
+The tinySA's quasi-peak (trace calculation `calc quasi`) charges instantly and discharges slowly over successive sweeps (decay of 20 sweeps by default, set on the device): it approximates, but is not, a CISPR 16 quasi-peak detector. More sweeps per angle bring the value closer to the settled one. It is reached over USB with the `scan` command (the raw `scanraw` sweep bypasses the trace calculation), so it is slower than a normal capture.
 
 ---
 

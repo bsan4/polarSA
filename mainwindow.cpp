@@ -22,6 +22,7 @@
 #include <QTimer>
 #include <algorithm>
 #include "src/ExportDialog/exportdialog.h"
+#include "src/QuasiPeak/quasipeakdialog.h"
 #include "src/TraceDialog/tracedialog.h"
 #include "src/Report/pdfreport.h"
 #include "src/Report/pdfattachments.h"
@@ -52,6 +53,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect( ui->pbLoopSingleCapture, &QPushButton::pressed, this, &MainWindow::triggerLoopSingleCapture );
     connect( ui->pbLoopSequenceCapture, &QPushButton::pressed, this, &MainWindow::triggerLoopSequenceCapture );
     connect( ui->pbStopCapture, &QPushButton::pressed, this, &MainWindow::triggerStopCapture );
+    connect( ui->pbQuasiPeak, &QPushButton::clicked, this, &MainWindow::startQuasiPeak );
+    connect( ui->actionExportQuasiPeak, &QAction::triggered, this, &MainWindow::exportQuasiPeak );
+    connect( ui->actionClearQuasiPeak, &QAction::triggered, this, &MainWindow::clearQuasiPeak );
     connect( ui->hsFreq, &QSlider::valueChanged, this, &MainWindow::freqSliderMoved);
     connect( ui->pbFreqCenter, &QPushButton::clicked, this, &MainWindow::goToCenterFrequency );
     connect( ui->pbFreqPeak, &QPushButton::clicked, this, &MainWindow::goToPeakFrequency );
@@ -246,6 +250,9 @@ void MainWindow::setCaptureRunning(bool running)
     ui->pbStopCapture->setEnabled(running);
     ui->actionClearGraphs->setEnabled(!running);
     ui->actionImportConfig->setEnabled(!running);
+    ui->pbQuasiPeak->setEnabled(!running);
+    ui->actionClearImports->setEnabled(!running);
+    ui->actionClearQuasiPeak->setEnabled(!running);
 }
 
 bool MainWindow::startCapture()
@@ -589,9 +596,9 @@ void MainWindow::updateFrequencyRange()
 
     QVector<double> freqs;
     auto addGrid = [&freqs](const QList<PowerSpectrum> &spectra) {
-        if ( !spectra.isEmpty() )
+        for( const PowerSpectrum &ps : spectra )
         {
-            for( float f : spectra.first().freq ) freqs.append(f);
+            for( float f : ps.freq ) freqs.append(f);
         }
     };
     addGrid(powerSpectra);
@@ -1021,18 +1028,28 @@ PowerSpectrum MainWindow::corrected(const PowerSpectrum &ps, double gainDb) cons
 PowerSpectrum MainWindow::maxHold(const Measurement &m) const
 {
     // Max over all angles, then the trace's gain offset and the setup calibration
-    PowerSpectrum maxPs;
+    // (by frequency: the spectra of a sparse trace may have different points while it is being measured)
+    QMap<float, float> maxByFreq;
     for( const PowerSpectrum &ps : m.spectra )
     {
-        if ( maxPs.power.isEmpty() )
+        for( int k = 0; k < ps.power.length() && k < ps.freq.length(); k++ )
         {
-            maxPs = ps;
-            continue;
+            auto it = maxByFreq.find(ps.freq.at(k));
+            if ( it == maxByFreq.end() )
+            {
+                maxByFreq.insert(ps.freq.at(k), ps.power.at(k));
+            }
+            else if ( ps.power.at(k) > it.value() )
+            {
+                it.value() = ps.power.at(k);
+            }
         }
-        for( int k = 0; k < ps.power.length() && k < maxPs.power.length(); k++ )
-        {
-            maxPs.power[k] = qMax(maxPs.power.at(k), ps.power.at(k));
-        }
+    }
+    PowerSpectrum maxPs;
+    for( auto it = maxByFreq.constBegin(); it != maxByFreq.constEnd(); ++it )
+    {
+        maxPs.freq.append(it.key());
+        maxPs.power.append(it.value());
     }
     return corrected(maxPs, m.gainOffsetDb);
 }
@@ -1056,12 +1073,14 @@ void MainWindow::updateSpectrumPlots()
     ui->maxSpectrumPlot->setPowerSpectrum( liveTrace.visible && !powerSpectra.isEmpty() ? maxHold(liveMeasurement()) : PowerSpectrum() );
     QList<PowerSpectrum> overlays;
     QList<QColor> colors;
+    QList<bool> markers;
     for( const Measurement &m : importedMeasurements )
     {
         overlays.append( m.visible ? maxHold(m) : PowerSpectrum() );
         colors.append(m.color);
+        markers.append(m.quasiPeak);
     }
-    ui->maxSpectrumPlot->setOverlaySpectra(overlays, colors);
+    ui->maxSpectrumPlot->setOverlaySpectra(overlays, colors, markers);
 
     // Worst margin to the limits in the group title
     QString title = "Max hold over all angles of the live capture and of the visible imports";
@@ -1844,6 +1863,13 @@ void MainWindow::importData()
     for( Measurement &m : loaded )
     {
         restoreTinySALevels(m);
+        for( const QString &line : m.metadata )
+        {
+            if ( line.startsWith("detector,quasi-peak") )
+            {
+                m.quasiPeak = true;
+            }
+        }
         m.color = nextImportColor();
         importedMeasurements.append(m);
         nbImported++;
@@ -1874,14 +1900,294 @@ void MainWindow::importData()
     }
 }
 
+bool MainWindow::isLiveQuasiPeak(const Measurement &m)
+{
+    return m.quasiPeak && m.sourcePath.isEmpty();
+}
+
+int MainWindow::quasiPeakIndex() const
+{
+    for( int i = 0; i < importedMeasurements.length(); i++ )
+    {
+        if ( isLiveQuasiPeak(importedMeasurements.at(i)) )
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+QStringList MainWindow::quasiPeakWindowsText() const
+{
+    QStringList windows;
+    const int qp = quasiPeakIndex();
+    if ( qp >= 0 )
+    {
+        for( const QString &line : importedMeasurements.at(qp).metadata )
+        {
+            if ( line.startsWith("qp_window,") )
+            {
+                windows << line.mid(10);
+            }
+        }
+    }
+    return windows;
+}
+
+void MainWindow::mergeWindow(PowerSpectrum &dst, const PowerSpectrum &src, double startHz, double stopHz)
+{
+    // Points of dst outside of the new window are kept, the window's points are replaced; sorted by frequency
+    QVector<QPair<float, float>> points;
+    for( int i = 0; i < dst.freq.length() && i < dst.power.length(); i++ )
+    {
+        if ( dst.freq.at(i) < startHz - 1.0 || dst.freq.at(i) > stopHz + 1.0 )
+        {
+            points.append({dst.freq.at(i), dst.power.at(i)});
+        }
+    }
+    for( int i = 0; i < src.freq.length() && i < src.power.length(); i++ )
+    {
+        points.append({src.freq.at(i), src.power.at(i)});
+    }
+    std::sort(points.begin(), points.end(), [](const QPair<float, float> &a, const QPair<float, float> &b) {
+        return a.first < b.first;
+    });
+    dst = PowerSpectrum();
+    for( const auto &p : points )
+    {
+        dst.freq.append(p.first);
+        dst.power.append(p.second);
+    }
+}
+
+void MainWindow::startQuasiPeak()
+{
+    if ( captureRunning )
+    {
+        return;
+    }
+
+    const QVector<int> angles = sequenceAngles();
+    const double centerHz = sliderFreqs.isEmpty() ? ui->sbSACenterFreq->value() * 1e6 : selectedFrequency();
+    const QString anglesText = QString("%1 angles, %2%5 to %3%5, step %4%5").arg(angles.length()).arg(angles.first())
+                                   .arg(angles.last()).arg(ui->sbRotatorStep->value()).arg(QChar(0x00B0));
+    QuasiPeakDialog dialog(centerHz, anglesText, quasiPeakWindowsText(), this);
+    if ( dialog.exec() != QDialog::Accepted )
+    {
+        return;
+    }
+    const QuasiPeakWindow win = dialog.window();
+    const QString windowText = QString::number(win.startHz * 1e-6, 'f', 4) + " - " + QString::number(win.stopHz * 1e-6, 'f', 4)
+                               + " MHz, " + QString::number(win.points) + " points, " + QString::number(win.sweeps)
+                               + " sweeps per angle, RBW " + ui->cbRBW->currentText();
+
+    // One quasi-peak trace: all its windows share the same angles
+    QVector<float> angleList;
+    for( int a : angles )
+    {
+        angleList.append(static_cast<float>(a));
+    }
+    int qp = quasiPeakIndex();
+    if ( qp >= 0 && importedMeasurements.at(qp).angles != angleList )
+    {
+        if ( QMessageBox::question(this, "Quasi-Peak", "The quasi-peak trace was measured at other angles.\n"
+                                                       "Replace it with this measurement?") != QMessageBox::Yes )
+        {
+            return;
+        }
+        removeImport(qp);
+        qp = -1;
+    }
+
+    if ( !startCapture() )
+    {
+        return;
+    }
+
+    bool created = false;
+    if ( qp < 0 )
+    {
+        Measurement m;
+        m.name = "Quasi-peak";
+        m.quasiPeak = true;
+        m.color = QColor("#00bfa5");
+        m.angles = angleList;
+        for( int i = 0; i < angles.length(); i++ )
+        {
+            m.spectra.append(PowerSpectrum());
+        }
+        m.metadata << "detector,quasi-peak (tinySA trace calc quasi: instant charge, slow discharge over successive sweeps; "
+                      "restarted from a raw sweep at each angle)"
+                   << "date," + QDateTime::currentDateTime().toString(Qt::ISODate)
+                   << "rbw," + ui->cbRBW->currentText()
+                   << "attenuation_dB," + QString::number(ui->sbSAAtt->value())
+                   << "lna," + QString(ui->sbSALNA->isChecked() ? "on" : "off")
+                   << "ext_gain_dB," + QString::number(ui->sbExtGain->value(), 'f', 1)
+                   << "data_unit,dBm (tinySA input level)"
+                   << "angle_start_deg," + QString::number(angles.first())
+                   << "angle_end_deg," + QString::number(angles.last())
+                   << "angle_step_deg," + QString::number(ui->sbRotatorStep->value());
+        importedMeasurements.prepend(m);
+        QListWidgetItem *item = new QListWidgetItem(colorSwatch(m.color), m.name);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        {
+            QSignalBlocker blocker(ui->lwImports);
+            item->setCheckState(Qt::Checked);
+            ui->lwImports->insertItem(1, item);
+        }
+        qp = 0;
+        created = true;
+    }
+    const QList<PowerSpectrum> before = importedMeasurements.at(qp).spectra;
+
+    // Each angle: move, restart the detector, quasi-peak sweeps over the window, keep the last sweep
+    bool completed = true;
+    for( int i = 0; i < angles.length(); i++ )
+    {
+        if ( stopCapture || !devicesReady() )
+        {
+            completed = false;
+            break;
+        }
+        ui->statusbar->showMessage("Quasi-peak " + QString::number(win.startHz * 1e-6, 'f', 3) + " - "
+                                   + QString::number(win.stopHz * 1e-6, 'f', 3) + " MHz: angle "
+                                   + QString::number(angles.at(i)) + QChar(0x00B0) + " ("
+                                   + QString::number(i + 1) + " / " + QString::number(angles.length()) + ")");
+        if ( !moveRotator(angles.at(i)) )
+        {
+            completed = false;
+            break;
+        }
+        PowerSpectrum ps;
+        for( int attempt = 0; attempt < 3 && ps.freq.isEmpty() && !stopCapture && tinySA.isOpen(); attempt++ )
+        {
+            ps = tinySA.captureQuasiPeak(static_cast<quint64>(win.startHz), static_cast<quint64>(win.stopHz),
+                                         win.points, win.sweeps);
+        }
+        if ( ps.freq.isEmpty() )
+        {
+            completed = false;
+            break;
+        }
+        mergeWindow(importedMeasurements[qp].spectra[i], ps, win.startHz, win.stopHz);
+        if ( i == 0 )
+        {
+            // Show the window being measured
+            updateFrequencyRange();
+            const double sel = selectedFrequency();
+            if ( sel < win.startHz || sel > win.stopHz )
+            {
+                setSelectedFrequency(0.5 * (win.startHz + win.stopHz));
+            }
+        }
+        updateRadiationPattern();
+        updateSpectrumPlots();
+        QApplication::processEvents();
+    }
+    tinySA.endQuasiPeak();
+
+    QString message;
+    if ( completed )
+    {
+        importedMeasurements[qp].metadata.append("qp_window," + windowText);
+        message = "Quasi-peak measured: " + windowText + ".";
+    }
+    else
+    {
+        // All angles must share the same frequency points: an interrupted window is discarded
+        importedMeasurements[qp].spectra = before;
+        message = "Quasi-peak stopped: the " + QString::number(win.startHz * 1e-6, 'f', 3) + " - "
+                  + QString::number(win.stopHz * 1e-6, 'f', 3) + " MHz window was discarded.";
+        if ( created )
+        {
+            removeImport(qp);
+            qp = -1;
+        }
+    }
+    if ( qp >= 0 )
+    {
+        ui->lwImports->item(qp + 1)->setToolTip( "Quasi-peak windows:\n" + quasiPeakWindowsText().join("\n") );
+    }
+    updateFrequencyRange();
+    updateRadiationPattern();
+    updateSpectrumPlots();
+    endCapture(message);
+}
+
+void MainWindow::clearQuasiPeak()
+{
+    const int qp = quasiPeakIndex();
+    if ( qp < 0 || captureRunning )
+    {
+        return;
+    }
+    if ( QMessageBox::question(this, "Clear Quasi-Peak", "Remove the quasi-peak trace (all its windows)?") != QMessageBox::Yes )
+    {
+        return;
+    }
+    removeImport(qp);
+}
+
+void MainWindow::exportQuasiPeak()
+{
+    const int qp = quasiPeakIndex();
+    if ( qp < 0 )
+    {
+        QMessageBox::information(this, "Export Quasi-Peak", "No quasi-peak measurement: use Capture > Quasi-Peak... first.");
+        return;
+    }
+
+    const QStringList windows = quasiPeakWindowsText();
+    ExportDialog dialog(QString::number(windows.length()) + " quasi-peak window(s), "
+                        + QString::number(importedMeasurements.at(qp).angles.length()) + " angles",
+                        this, "Export Quasi-Peak - Measurement notes", "Export...");
+    if ( dialog.exec() != QDialog::Accepted )
+    {
+        return;
+    }
+    QString dut = dialog.dutName();
+    dut.replace(QRegularExpression("[^A-Za-z0-9_.-]+"), "_");
+    QString defaultName = "polarSA_QP_" + (dut.isEmpty() ? QString() : dut + "_")
+                          + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + ".csv";
+    QString path = QFileDialog::getSaveFileName(this, "Export Quasi-Peak", QDir(lastDir("export")).filePath(defaultName),
+                                                "CSV files (*.csv);;All files (*)");
+    if ( path.isEmpty() )
+    {
+        return;
+    }
+    rememberDir("export", path);
+
+    Measurement m = importedMeasurements.at(qp);
+    QStringList metadata = dialog.metadata();
+    if ( !currentConfigPath.isEmpty() )
+    {
+        metadata.append("config," + configDisplayName());
+    }
+    metadata += levelsMetadata();
+    m.metadata = metadata + m.metadata;
+    applyAdjustments(m);
+
+    QString error;
+    if ( !writeMeasurementCsv(path, m, &error) )
+    {
+        QMessageBox::warning(this, "Export Quasi-Peak", "Export failed:\n" + error);
+        return;
+    }
+    ui->statusbar->showMessage("Quasi-peak exported to " + QDir::toNativeSeparators(path));
+}
+
 void MainWindow::clearImports()
 {
-    importedMeasurements.clear();
-    importCount = 0;
-    while ( ui->lwImports->count() > 1 )
+    // Row 0 (live capture) and the quasi-peak measurement are kept
+    for( int i = importedMeasurements.length() - 1; i >= 0; i-- )
     {
-        delete ui->lwImports->takeItem(1); // keep row 0, the live capture
+        if ( !isLiveQuasiPeak(importedMeasurements.at(i)) )
+        {
+            importedMeasurements.removeAt(i);
+            delete ui->lwImports->takeItem(i + 1);
+        }
     }
+    importCount = 0;
     ui->powerPlot->setOverlayPatterns({}, {});
     updateFrequencyRange();
     updateRadiationPattern();

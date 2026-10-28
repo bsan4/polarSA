@@ -15,38 +15,44 @@ double PatternAnalysis::wrap360(double angleDeg)
     return a;
 }
 
+// Index of the point of a sorted frequency grid closest to hz, within half the local point spacing
+// (grids may be sparse: several windows with gaps). A single-point grid always matches.
+static int nearestIndex(const QVector<float> &freq, double hz)
+{
+    const int n = freq.size();
+    if (n == 0)
+        return -1;
+    if (n == 1)
+        return 0;
+    int i = static_cast<int>(std::lower_bound(freq.begin(), freq.end(), static_cast<float>(hz)) - freq.begin());
+    int best;
+    if (i <= 0)
+        best = 0;
+    else if (i >= n)
+        best = n - 1;
+    else
+        best = (hz - freq[i - 1] <= freq[i] - hz) ? i - 1 : i;
+
+    double spacing = (std::numeric_limits<double>::max)();
+    if (best > 0)
+        spacing = qMin(spacing, static_cast<double>(freq[best] - freq[best - 1]));
+    if (best < n - 1)
+        spacing = qMin(spacing, static_cast<double>(freq[best + 1] - freq[best]));
+    const double tolerance = 0.5 * spacing * (1 + 1e-6) + 0.5; // + 0.5 Hz: float rounding
+    return std::abs(freq[best] - hz) <= tolerance ? best : -1;
+}
+
 RadiationPattern PatternAnalysis::patternAt(const QList<PowerSpectrum> &spectra, const QVector<float> &angles, double freqHz)
 {
     RadiationPattern rp;
-    if (spectra.isEmpty() || spectra.first().freq.isEmpty())
-        return rp;
-    const QVector<float> &freq = spectra.first().freq;
-
-    // Nearest frequency bin. A single-frequency measurement is always shown.
-    int bestId = 0;
-    double bestDist = (std::numeric_limits<double>::max)();
-    for (int i = 0; i < freq.length(); ++i)
-    {
-        double d = std::abs(freq.at(i) - freqHz);
-        if (d < bestDist)
-        {
-            bestDist = d;
-            bestId = i;
-        }
-    }
-    if (freq.length() > 1)
-    {
-        double halfBin = 0.5 * std::abs(freq.at(1) - freq.at(0));
-        if (bestDist > halfBin)
-            return rp; // requested frequency is outside of this trace
-    }
-
     for (int specId = 0; specId < spectra.length() && specId < angles.length(); ++specId)
     {
-        if (bestId < spectra.at(specId).power.length())
+        const PowerSpectrum &ps = spectra.at(specId);
+        const int i = nearestIndex(ps.freq, freqHz);
+        if (i >= 0 && i < ps.power.length())
         {
             rp.angles.push_back(angles.at(specId));
-            rp.power.push_back(spectra.at(specId).power.at(bestId));
+            rp.power.push_back(ps.power.at(i));
         }
     }
     return rp;

@@ -215,6 +215,99 @@ PowerSpectrum TinySA::capture()
     return spec;
 }
 
+PowerSpectrum TinySA::captureQuasiPeak(quint64 startHz, quint64 stopHz, int points, int sweeps)
+{
+    if (!isOpen() || points < 2 || stopHz <= startHz)
+        return PowerSpectrum();
+
+    // mask 3: frequency + level of trace 1, as text
+    const QString cmd = QString("scan %1 %2 %3 3").arg(startHz).arg(stopHz).arg(points);
+
+    // Restart the detector from a raw sweep at the current position (angle), then let it settle
+    if (!sendCommandExpectQuiet("calc 1 off")) return PowerSpectrum();
+    if (!runScan(cmd, nullptr)) return PowerSpectrum();
+    if (!sendCommandExpectQuiet("calc 1 quasi")) return PowerSpectrum();
+
+    QByteArray text;
+    for (int s = 0; s < qMax(1, sweeps); ++s)
+    {
+        if (!runScan(cmd, &text))
+            return PowerSpectrum();
+    }
+
+    PowerSpectrum spec = parseScanText(text);
+    if (spec.freq.size() != points)
+    {
+        qDebug() << "quasi-peak scan: expected" << points << "points, got" << spec.freq.size();
+        return PowerSpectrum();
+    }
+    return spec;
+}
+
+void TinySA::endQuasiPeak()
+{
+    if (isOpen())
+        sendCommandExpectQuiet("calc 1 off");
+}
+
+bool TinySA::runScan(const QString &cmd, QByteArray *text)
+{
+    clearPendingInput();
+    if (!sendCommand(cmd))
+    {
+        qDebug() << "Failed to send" << cmd;
+        return false;
+    }
+    QByteArray answer = readUntilPrompt(60000);
+    if (answer.isEmpty())
+    {
+        qDebug() << "scan: no answer";
+        return false;
+    }
+    if (text)
+        *text = answer;
+    return true;
+}
+
+PowerSpectrum TinySA::parseScanText(const QByteArray &text)
+{
+    PowerSpectrum spec;
+    for (const QByteArray &rawLine : text.split('\n'))
+    {
+        const QList<QByteArray> fields = rawLine.simplified().split(' ');
+        if (fields.size() < 2)
+            continue;
+        bool okFreq = false;
+        bool okLevel = false;
+        const double freq = fields.at(0).toDouble(&okFreq);
+        const double level = fields.at(1).toDouble(&okLevel);
+        if (!okFreq || !okLevel)
+            continue;       // command echo, prompt
+        spec.freq.push_back(static_cast<float>(freq));
+        spec.power.push_back(static_cast<float>(level));
+    }
+    return spec;
+}
+
+QByteArray TinySA::readUntilPrompt(int timeoutMs)
+{
+    QElapsedTimer t;
+    t.start();
+    while (!portBuffer.contains(prompt) && t.elapsed() < timeoutMs)
+    {
+        if (port.waitForReadyRead(50))
+            portBuffer += port.readAll();
+        else
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
+    }
+    int idx = portBuffer.indexOf(prompt);
+    if (idx < 0)
+        return QByteArray();
+    QByteArray out = portBuffer.left(idx);
+    portBuffer.remove(0, idx + prompt.size());
+    return out;
+}
+
 void TinySA::pollConnection()
 {
     if (isConnected && port.isOpen())

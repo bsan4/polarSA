@@ -48,6 +48,7 @@ public:
     bool visible = true;
     double angleOffsetDeg = 0;      // display rotation added to every angle
     double gainOffsetDb = 0;        // display gain added to every power value
+    bool quasiPeak = false;         // quasi-peak trace: sparse frequency windows measured at each angle
     QStringList metadata;           // free "key,value" lines, informative only
     QVector<float> angles;          // degrees, one per spectrum
     QList<PowerSpectrum> spectra;
