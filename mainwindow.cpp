@@ -204,6 +204,7 @@ bool MainWindow::startCapture()
     }
 
     stopCapture = false;
+    captureError.clear();
     setCaptureRunning(true);
     sendSAParameters();
     sendRotatorParameters();
@@ -213,15 +214,26 @@ bool MainWindow::startCapture()
 void MainWindow::endCapture(const QString &message)
 {
     setCaptureRunning(false);
-    ui->statusbar->showMessage( devicesReady() ? message : "Stopped: device disconnected." );
+    ui->statusbar->showMessage( !devicesReady() ? "Stopped: device disconnected." : !captureError.isEmpty() ? captureError : message );
 }
 
-void MainWindow::waitMs(int ms)
+bool MainWindow::moveRotator(int deg)
 {
-    // Keeps the UI (and the Stop button) responsive while waiting
+    // Waits for the firmware's position notification; the UI (and the Stop button) stays responsive
     QEventLoop loop;
-    QTimer::singleShot(ms, &loop, &QEventLoop::quit);
+    bool reached = false;
+    connect( &rotator, &Rotator::positionReached, &loop, [&](int at){ if ( at == deg ) { reached = true; loop.quit(); } } );
+    connect( &rotator, &Rotator::disconnected, &loop, &QEventLoop::quit );
+    connect( ui->pbStopCapture, &QPushButton::clicked, &loop, &QEventLoop::quit );
+    QTimer::singleShot( rotator.moveTimeoutMs(), &loop, &QEventLoop::quit );
+    rotator.setAngle(deg);
     loop.exec();
+    if ( !reached && !stopCapture && rotator.isOpen() )
+    {
+        captureError = "Stopped: rotator did not reach " + QString::number(deg) + " deg.";
+        stopCapture = true;
+    }
+    return reached;
 }
 
 PowerSpectrum MainWindow::captureSpectrum()
@@ -373,8 +385,10 @@ bool MainWindow::runSequence(bool reverse, const QString &label, int pass)
         ui->statusbar->showMessage(label + "Capturing " + QString::number(i + 1) + " out of " + QString::number(angles.length()));
 
         qDebug() << "capturing angle " << a;
-        rotator.setAngle(a);
-        waitMs(100);
+        if ( !moveRotator(a) )
+        {
+            break;
+        }
         PowerSpectrum ps = captureSpectrum();
         if (ps.power.length() > 0)
         {

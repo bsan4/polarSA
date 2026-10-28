@@ -39,7 +39,7 @@ private:
     void setCaptureRunning(bool running);
     bool startCapture();
     void endCapture(const QString &message);
-    void waitMs(int ms);
+    bool moveRotator(int deg);
     PowerSpectrum captureSpectrum();
     QVector<int> sequenceAngles();
     bool runSequence(bool reverse, const QString &label, int pass);
@@ -76,6 +76,7 @@ private:
     TinySA tinySA;
     Rotator rotator;
     bool stopCapture = false;
+    QString captureError;                   // why the last capture stopped early, if not by the user
     bool captureRunning = false;
     bool saParamsDirty = false;             // SA settings edited since they were last sent
     QList<PowerSpectrum> powerSpectra;

@@ -4,6 +4,7 @@
 #include <QDebug>
 
 #define ROTATOR_REG_ANGLE_Z 0
+#define ROTATOR_REG_SPEED   1
 
 
 Rotator::Rotator(QObject *parent)
@@ -36,6 +37,20 @@ void Rotator::setAngle(int deg)
     sendCommand( cmd );
 }
 
+void Rotator::setSpeed(int degPerSec)
+{
+    char cmd[32];
+    sprintf(cmd, "set %d %d\n", ROTATOR_REG_SPEED, degPerSec);
+    if ( sendCommand( cmd ) )
+        speedDps = degPerSec;
+}
+
+int Rotator::moveTimeoutMs() const
+{
+    const int travelMs = speedDps > 0 ? fullTravelDeg * 1000 / speedDps : 1000;
+    return travelMs + 2000;
+}
+
 void Rotator::pollConnection()
 {
     if (isConnected && port.isOpen())
@@ -64,6 +79,9 @@ void Rotator::pollConnection()
 
             if (port.open(QIODevice::ReadWrite))
             {
+                port.setDataTerminalReady(true);    // the 32u4 CDC drops its output while DTR is low
+                rxBuffer.clear();
+                speedDps = 0;
                 qDebug() << "Serial opened";
                 emit connected();
                 isConnected = true;
@@ -82,7 +100,17 @@ void Rotator::pollConnection()
 
 void Rotator::onSerialReadyRead()
 {
-    ;
+    rxBuffer += port.readAll();
+    int eol;
+    while ( (eol = rxBuffer.indexOf('\n')) >= 0 )
+    {
+        const QByteArray line = rxBuffer.left(eol).trimmed();
+        rxBuffer.remove(0, eol + 1);
+        if ( line.startsWith("reached ") )
+            emit positionReached(line.mid(8).toInt());
+        else if ( line == "err" )
+            qDebug() << "Rotator rejected a command";
+    }
 }
 
 void Rotator::onPortError(QSerialPort::SerialPortError error)
