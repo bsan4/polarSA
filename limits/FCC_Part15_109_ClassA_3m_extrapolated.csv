@@ -1,0 +1,10 @@
+# name,FCC Part 15.109 Class A radiated, extrapolated to 3 m
+# unit,dBuV/m
+# description,10 m Class A limits + 20*log10(10/3) = +10.5 dB (inverse distance), for 3 m pre-compliance setups. Not a published table.
+limit,start_MHz,stop_MHz,start_level,stop_level
+Quasi-peak,30,88,49.6,49.6
+Quasi-peak,88,216,54.0,54.0
+Quasi-peak,216,960,56.9,56.9
+Quasi-peak,960,1000,60.0,60.0
+Average,1000,6000,60.0,60.0
+Peak,1000,6000,80.0,80.0

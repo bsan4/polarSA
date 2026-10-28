@@ -1,0 +1,10 @@
+# name,FCC Part 15.209 general radiated limits, 3 m
+# unit,dBuV/m
+# description,Intentional radiators, emissions outside the operating band (above 30 MHz). Quasi-peak up to 1 GHz, average above (15.35), peak = average + 20 dB.
+limit,start_MHz,stop_MHz,start_level,stop_level
+Quasi-peak,30,88,40.0,40.0
+Quasi-peak,88,216,43.5,43.5
+Quasi-peak,216,960,46.0,46.0
+Quasi-peak,960,1000,54.0,54.0
+Average,1000,6000,54.0,54.0
+Peak,1000,6000,74.0,74.0

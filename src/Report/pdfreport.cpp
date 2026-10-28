@@ -11,6 +11,7 @@
 #include <cmath>
 
 #include "inc/defines.h"
+#include "src/Corrections/corrections.h"
 #include "lib/QCustomPlot/qcustomplot.h"
 #include "src/PowerPlot/powerplot.h"
 #include "src/SpectrumPlot/spectrumplot.h"
@@ -267,8 +268,9 @@ void tracesTable(Page &page, const ReportData &data)
         cells << "" << t.name;
         if (m.valid)
         {
-            cells << QString::number(m.maxDb, 'f', 1) + " dBm @ " + degrees(m.maxAngleDeg)
-                  << QString::number(m.averageDb, 'f', 1) + " dBm"
+            const QString unit = " " + Corrections::displayUnit(data.unit);
+            cells << QString::number(m.maxDb, 'f', 1) + unit + " @ " + degrees(m.maxAngleDeg)
+                  << QString::number(m.averageDb, 'f', 1) + unit
                   << (m.omni ? QString("omni") : m.beamwidth3dB >= 0 ? degrees(m.beamwidth3dB) : QString("-"))
                   << (m.hasFrontToBack ? QString::number(m.frontToBackDb, 'f', 1) + " dB" : QString("-"));
         }
@@ -278,6 +280,57 @@ void tracesTable(Page &page, const ReportData &data)
         }
         cells << degrees(t.angleOffsetDeg) + " / " + (t.gainOffsetDb >= 0 ? "+" : "") + QString::number(t.gainOffsetDb, 'f', 1) + " dB";
         drawRow(cells, t.color, false);
+    }
+}
+void limitTable(Page &page, const ReportData &data)
+{
+    QCPPainter &p = page.painter();
+    const int rowH = 18;
+    const int w = page.width();
+    const QList<int> widths = {16, w * 30 / 100, 16, w * 22 / 100, 0}; // swatch, trace, swatch, limit, result
+    int fixed = 0;
+    for (int x : widths) fixed += x;
+    const int resultW = w - fixed;
+    const QString unit = " " + Corrections::displayUnit(data.unit);
+
+    auto drawRow = [&](const QColor &traceColor, const QString &trace, const QColor &limitColor, const QString &limit,
+                       const QString &result, const QColor &resultColor, bool header) {
+        page.ensureSpace(rowH);
+        p.setFont(page.baseFont(8.5, header));
+        int x = 0;
+        if (traceColor.isValid())
+            p.fillRect(QRect(x + 2, page.y() + 5, 10, 8), traceColor);
+        x += widths[0];
+        p.setPen(header ? kMuted : Qt::black);
+        p.drawText(QRect(x, page.y(), widths[1] - 6, rowH), Qt::AlignLeft | Qt::AlignVCenter,
+                   p.fontMetrics().elidedText(trace, Qt::ElideMiddle, widths[1] - 6));
+        x += widths[1];
+        if (limitColor.isValid())
+            p.fillRect(QRect(x + 2, page.y() + 8, 10, 2), limitColor);
+        x += widths[2];
+        p.drawText(QRect(x, page.y(), widths[3] - 6, rowH), Qt::AlignLeft | Qt::AlignVCenter,
+                   p.fontMetrics().elidedText(limit, Qt::ElideRight, widths[3] - 6));
+        x += widths[3];
+        p.setPen(header ? kMuted : resultColor);
+        p.drawText(QRect(x, page.y(), resultW, rowH), Qt::AlignLeft | Qt::AlignVCenter, result);
+        page.advance(rowH);
+        p.setPen(QPen(kRule, 0.5));
+        p.drawLine(QLineF(0, page.y(), page.width(), page.y()));
+    };
+
+    drawRow(QColor(), "Trace", QColor(), "Limit", "Worst margin (negative = above the limit)", QColor(), true);
+    for (const LimitCheck &c : data.limitChecks)
+    {
+        if (!c.covered)
+        {
+            drawRow(c.traceColor, c.trace, c.limitColor, c.limit, "no data in the limit's frequency range", kMuted, false);
+            continue;
+        }
+        QString result = (c.marginDb >= 0 ? "+" : "") + QString::number(c.marginDb, 'f', 1) + " dB  at "
+                         + QString::number(c.freqHz * 1e-6, 'f', 3) + " MHz  ("
+                         + QString::number(c.levelDb, 'f', 1) + unit + " vs " + QString::number(c.limitDb, 'f', 1) + unit + ")";
+        drawRow(c.traceColor, c.trace, c.limitColor, c.limit, result,
+                c.marginDb < 0 ? QColor(200, 0, 0) : QColor(0, 120, 40), false);
     }
 }
 } // namespace
@@ -318,9 +371,14 @@ bool PdfReport::write(const QString &path, const ReportData &data, QString *erro
     // --- Summary
     QList<QPair<QString, QString>> info;
     info << QPair<QString, QString>("Frequency", QString::number(data.freqHz * 1e-6, 'f', 3) + " MHz");
-    info << QPair<QString, QString>("Scale", data.normalized ? "normalized (each trace relative to its max)" : "absolute (dBm)");
+    info << QPair<QString, QString>("Scale", data.normalized ? "normalized (each trace relative to its max)"
+                                                              : "absolute (" + Corrections::displayUnit(data.unit) + ")");
     info << QPair<QString, QString>("Config file", data.configName.isEmpty() ? QString("(none)") : data.configName);
     info << QPair<QString, QString>("Traces", QString::number(data.traces.size()));
+    info << QPair<QString, QString>("Calibration", data.calibration.isEmpty()
+                                                       ? QString("none (levels in dBm at the analyzer input, external gain removed)")
+                                                       : data.calibration);
+    info << QPair<QString, QString>("Limits", data.limits.isEmpty() ? QString("none") : data.limits);
     if (nbEmbedded > 0)
         info << QPair<QString, QString>("Embedded data", QString::number(nbEmbedded) + " CSV file(s), importable in polarSA");
     for (const QString &line : data.notes)
@@ -363,11 +421,21 @@ bool PdfReport::write(const QString &path, const ReportData &data, QString *erro
     }
     tracesTable(page, data);
 
+    // --- Limit check
+    if (!data.limits.isEmpty())
+    {
+        page.sectionTitle("Limit check (max hold over all angles)");
+        if (!data.limitsNote.isEmpty())
+            page.paragraph(data.limitsNote, 8.5, kMuted);
+        if (!data.limitChecks.isEmpty())
+            limitTable(page, data);
+    }
+
     // --- Max emissions (own page, it is wide)
     if (data.maxPlot)
     {
         page.newPage();
-        page.sectionTitle("Max emissions (max hold over all angles, live capture)");
+        page.sectionTitle("Max emissions (max hold over all angles)");
         page.plot(data.maxPlot, page.width(), 380);
     }
 

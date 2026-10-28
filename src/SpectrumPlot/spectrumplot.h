@@ -1,10 +1,10 @@
-
 #ifndef SPECTRUMPLOT_H
 #define SPECTRUMPLOT_H
 
 #include <QObject>
 #include "inc/defines.h"
 #include "lib/QCustomPlot/qcustomplot.h"
+#include "src/Corrections/corrections.h"
 
 class SpectrumPlot : public QCustomPlot
 {
@@ -15,13 +15,27 @@ public:
     ~SpectrumPlot();
     void setPowerSpectrum(const PowerSpectrum &spectrum);
     void clearSpectrum();
-    void setPrintTheme(bool on);    // light colors for PDF / print rendering
+    void setTraceColor(const QColor &color);    // main trace; invalid = theme highlight
+
+    // Extra spectra (e.g. max hold of imported measurements); empty spectra are not drawn
+    void setOverlaySpectra(const QList<PowerSpectrum> &spectra, const QList<QColor> &colors);
+
+    // EMC limit lines (dashed, with a legend). includeInScale: also fit the y axis on them.
+    void setLimits(const LimitSet &limits, bool includeInScale);
+    void setUnit(const QString &unit);          // y axis unit, e.g. "dBm" or "dBuV/m"
+    void setPrintTheme(bool on);                // light colors for PDF / print rendering
 
 private:
     void initPlot();
     void applyTheme();
+    void rescaleToData();
 
     bool mPrintTheme = false;
+    QColor mTraceColor;
+    QList<QCPGraph*> mOverlayGraphs;
+    QList<QCPGraph*> mLimitGraphs;
+    LimitSet mLimits;
+    bool mLimitsInScale = false;
 };
 
 

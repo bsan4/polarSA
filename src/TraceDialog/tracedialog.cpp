@@ -14,15 +14,16 @@
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <cmath>
+#include "src/Corrections/corrections.h"
 
 static QString degrees(double a)
 {
     return QString::number(a, 'f', std::abs(a - std::round(a)) < 0.05 ? 0 : 1) + QChar(0x00B0);
 }
 
-static QString dbm(double v)
+static QString level(double v, const QString &unit)
 {
-    return QString::number(v, 'f', 1) + " dBm";
+    return QString::number(v, 'f', 1) + " " + Corrections::displayUnit(unit);
 }
 
 static QString signedDb(double v)
@@ -31,10 +32,12 @@ static QString signedDb(double v)
 }
 
 TraceDialog::TraceDialog(const Measurement &trace, bool isLive, double freqHz,
-                         const PatternMetrics &reference, QWidget *parent)
+                         const PatternMetrics &reference, double correctionDb, const QString &unit, QWidget *parent)
     : QDialog(parent)
     , mTrace(trace)
     , mFreqHz(freqHz)
+    , mCorrectionDb(correctionDb)
+    , mUnit(unit)
     , mReference(reference)
     , mColor(trace.color)
 {
@@ -228,7 +231,7 @@ void TraceDialog::setColor(const QColor &color)
 
 void TraceDialog::updateAnalysis()
 {
-    PatternMetrics m = PatternAnalysis::compute(PatternAnalysis::adjusted(mRawPattern, angleOffset(), gainOffset()));
+    PatternMetrics m = PatternAnalysis::compute(PatternAnalysis::adjusted(mRawPattern, angleOffset(), gainOffset() + mCorrectionDb));
     if (!m.valid)
     {
         const QString na = "no data at this frequency";
@@ -238,10 +241,10 @@ void TraceDialog::updateAnalysis()
         return;
     }
 
-    mMax->setText(dbm(m.maxDb) + " @ " + degrees(m.maxAngleDeg));
-    mMin->setText(dbm(m.minDb) + " @ " + degrees(m.minAngleDeg));
+    mMax->setText(level(m.maxDb, mUnit) + " @ " + degrees(m.maxAngleDeg));
+    mMin->setText(level(m.minDb, mUnit) + " @ " + degrees(m.minAngleDeg));
     mRipple->setText(QString::number(m.maxDb - m.minDb, 'f', 1) + " dB");
-    mAverage->setText(dbm(m.averageDb));
+    mAverage->setText(level(m.averageDb, mUnit));
 
     if (m.omni)
         mBeamwidth->setText("omnidirectional (within 3 dB)");

@@ -1,0 +1,5 @@
+# unit,dBm
+# description,TEMPLATE - no correction (0 dB). Copy this file, fill in your setup and set the unit (e.g. dBuV/m).
+frequency_MHz,correction_dB
+0.1,0
+6000,0
