@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QPalette>
 #include <cmath>
+#include <algorithm>
 #include <limits>
 
 SpectrumPlot::SpectrumPlot(QWidget *parent)
@@ -124,6 +125,18 @@ void SpectrumPlot::clearSpectrum()
 static void fillGraph(QCPGraph *graph, const PowerSpectrum &spectrum)
 {
     const int n = qMin(spectrum.freq.size(), spectrum.power.size());
+
+    // Sparse spectra (several frequency windows): no line across a gap much larger than the typical spacing
+    double gapLimit = 0;
+    if (n > 2)
+    {
+        QVector<double> steps;
+        for (int i = 1; i < n; ++i)
+            steps.push_back(spectrum.freq[i] - spectrum.freq[i - 1]);
+        std::sort(steps.begin(), steps.end());
+        gapLimit = 3.0 * steps[steps.size() / 2];
+    }
+
     QVector<double> x;
     QVector<double> y;
     x.reserve(n);
@@ -131,6 +144,11 @@ static void fillGraph(QCPGraph *graph, const PowerSpectrum &spectrum)
     for (int i = 0; i < n; ++i)
     {
         // convert Hz -> MHz
+        if (i > 0 && gapLimit > 0 && spectrum.freq[i] - spectrum.freq[i - 1] > gapLimit)
+        {
+            x.push_back(0.5 * (spectrum.freq[i] + spectrum.freq[i - 1]) / 1e6);
+            y.push_back(std::numeric_limits<double>::quiet_NaN());
+        }
         x.push_back(static_cast<double>(spectrum.freq[i]) / 1e6);
         y.push_back(static_cast<double>(spectrum.power[i]));
     }
@@ -147,7 +165,8 @@ void SpectrumPlot::setPowerSpectrum(const PowerSpectrum &spectrum)
     replot();
 }
 
-void SpectrumPlot::setOverlaySpectra(const QList<PowerSpectrum> &spectra, const QList<QColor> &colors)
+void SpectrumPlot::setOverlaySpectra(const QList<PowerSpectrum> &spectra, const QList<QColor> &colors,
+                                     const QList<bool> &markers)
 {
     while (mOverlayGraphs.size() > spectra.size())
         removeGraph(mOverlayGraphs.takeLast());
@@ -161,7 +180,10 @@ void SpectrumPlot::setOverlaySpectra(const QList<PowerSpectrum> &spectra, const 
     }
     for (int i = 0; i < spectra.size(); ++i)
     {
-        mOverlayGraphs[i]->setPen(QPen(i < colors.size() ? colors[i] : QColor(Qt::gray), 1.5));
+        const QColor color = i < colors.size() ? colors[i] : QColor(Qt::gray);
+        mOverlayGraphs[i]->setPen(QPen(color, 1.5));
+        mOverlayGraphs[i]->setScatterStyle( markers.value(i) ? QCPScatterStyle(QCPScatterStyle::ssDisc, color, 5)
+                                                             : QCPScatterStyle(QCPScatterStyle::ssNone) );
         fillGraph(mOverlayGraphs[i], spectra[i]);
     }
     rescaleToData(mAutoX, mAutoY);

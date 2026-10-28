@@ -765,6 +765,16 @@
              </property>
             </widget>
            </item>
+           <item row="3" column="0" colspan="2">
+            <widget class="QPushButton" name="pbQuasiPeak">
+             <property name="toolTip">
+              <string>Quasi-peak measurement of a frequency window (e.g. around a peak close to a limit), at each rotator angle. Results are added to the Quasi-peak trace.</string>
+             </property>
+             <property name="text">
+              <string>Quasi-Peak...</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
@@ -806,6 +816,7 @@
     </property>
     <addaction name="actionImportTrace"/>
     <addaction name="actionExportTrace"/>
+    <addaction name="actionExportQuasiPeak"/>
     <addaction name="actionExportPdf"/>
     <addaction name="separator"/>
     <addaction name="actionImportConfig"/>
@@ -822,6 +833,7 @@
     </property>
     <addaction name="actionClearImports"/>
     <addaction name="actionClearGraphs"/>
+    <addaction name="actionClearQuasiPeak"/>
     <addaction name="separator"/>
     <addaction name="actionClearCalibration"/>
     <addaction name="actionClearLimits"/>
@@ -931,6 +943,22 @@
    </property>
    <property name="toolTip">
     <string>Clear the live capture from all graphs (imports are kept)</string>
+   </property>
+  </action>
+  <action name="actionExportQuasiPeak">
+   <property name="text">
+    <string>Export &amp;Quasi-Peak...</string>
+   </property>
+   <property name="toolTip">
+    <string>Save the quasi-peak trace (all its windows, all angles) to a CSV file</string>
+   </property>
+  </action>
+  <action name="actionClearQuasiPeak">
+   <property name="text">
+    <string>Clear &amp;Quasi-Peak</string>
+   </property>
+   <property name="toolTip">
+    <string>Remove the quasi-peak trace</string>
    </property>
   </action>
   <action name="actionClearCalibration">

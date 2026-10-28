@@ -17,8 +17,10 @@ public:
     void clearSpectrum();
     void setTraceColor(const QColor &color);    // main trace; invalid = theme highlight
 
-    // Extra spectra (e.g. max hold of imported measurements); empty spectra are not drawn
-    void setOverlaySpectra(const QList<PowerSpectrum> &spectra, const QList<QColor> &colors);
+    // Extra spectra (e.g. max hold of imported measurements); empty spectra are not drawn.
+    // markers: draw a dot on each point (sparse spectra such as quasi-peak windows).
+    void setOverlaySpectra(const QList<PowerSpectrum> &spectra, const QList<QColor> &colors,
+                           const QList<bool> &markers = QList<bool>());
 
     // EMC limit lines (dashed, with a legend). includeInScale: also fit the y axis on them.
     void setLimits(const LimitSet &limits, bool includeInScale);

@@ -64,6 +64,13 @@ private:
     QString levelDescription() const;
     void updateLevelControls();
     Q_SLOT void clearGraphs();
+    Q_SLOT void startQuasiPeak();
+    Q_SLOT void clearQuasiPeak();
+    Q_SLOT void exportQuasiPeak();
+    static bool isLiveQuasiPeak(const Measurement &m);
+    int quasiPeakIndex() const;
+    QStringList quasiPeakWindowsText() const;
+    static void mergeWindow(PowerSpectrum &dst, const PowerSpectrum &src, double startHz, double stopHz);
     Q_SLOT void showAbout();
     double correctionAt(double hz) const;
     bool limitsComparable() const;
