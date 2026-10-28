@@ -493,9 +493,9 @@
             </widget>
            </item>
            <item row="0" column="1">
-            <widget class="QPushButton" name="pushButton_3">
-             <property name="enabled">
-              <bool>false</bool>
+            <widget class="QPushButton" name="pbLoopSingleCapture">
+             <property name="toolTip">
+              <string>Sweep continuously until Stop. Spectrum analyzer settings changes are applied on the fly.</string>
              </property>
              <property name="text">
               <string>Loop Single</string>
@@ -510,9 +510,9 @@
             </widget>
            </item>
            <item row="1" column="1">
-            <widget class="QPushButton" name="pushButton_4">
-             <property name="enabled">
-              <bool>false</bool>
+            <widget class="QPushButton" name="pbLoopSequenceCapture">
+             <property name="toolTip">
+              <string>Repeat the sequence until Stop, alternating the rotation direction. Each pass replaces the live data.</string>
              </property>
              <property name="text">
               <string>Loop Sequence</string>

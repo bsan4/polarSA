@@ -65,6 +65,17 @@ Example workflow:
 
 ---
 
+### Capture Modes
+
+- **Single**: one sweep at the current rotator position.
+- **Loop Single**: continuous sweeps until **Stop**; spectrum analyzer settings changed meanwhile are applied on the fly.
+- **Sequence**: one sweep per angle from start to end angle.
+- **Loop Sequence**: repeats the sequence until **Stop**, alternating the rotation direction (start→end, end→start...) so the turntable never travels back across the whole range. Each pass replaces the live data.
+
+Capture buttons are disabled while a capture runs; **Stop** is only enabled then.
+
+---
+
 ### CSV Export / Import and Pattern Comparison
 
 **Export...** first asks for measurement notes (DUT, antenna, matching, polarization, operator, free comments; remembered between exports), then saves the last sequence capture (every spectrum at every angle) to a CSV file:

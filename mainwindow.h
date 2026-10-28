@@ -26,11 +26,21 @@ protected:
 private:
     Q_SLOT void triggerSingleCapture();
     Q_SLOT void triggerSequenceCapture();
+    Q_SLOT void triggerLoopSingleCapture();
+    Q_SLOT void triggerLoopSequenceCapture();
     Q_SLOT void triggerStopCapture();
     Q_SLOT void freqSliderMoved(int idChanged);
     Q_SLOT void exportData();
     Q_SLOT void importData();
     Q_SLOT void clearImports();
+    bool devicesReady() const;
+    void setCaptureRunning(bool running);
+    bool startCapture();
+    void endCapture(const QString &message);
+    void waitMs(int ms);
+    PowerSpectrum captureSpectrum();
+    QVector<int> sequenceAngles();
+    bool runSequence(bool reverse, const QString &label, int pass);
     void sendSAParameters();
     void sendRotatorParameters();
     void updateRadiationPattern();
@@ -50,6 +60,8 @@ private:
     TinySA tinySA;
     Rotator rotator;
     bool stopCapture = false;
+    bool captureRunning = false;
+    bool saParamsDirty = false;             // SA settings edited since they were last sent
     QList<PowerSpectrum> powerSpectra;
     QVector<float> captureAngles;           // one per entry of powerSpectra
     QStringList captureMetadata;            // settings snapshot of the last sequence

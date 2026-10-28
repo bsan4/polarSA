@@ -1,6 +1,5 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include <windows.h>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QFile>
@@ -15,6 +14,8 @@
 #include <QSplitter>
 #include <QRegularExpression>
 #include <QSignalBlocker>
+#include <QEventLoop>
+#include <QTimer>
 #include <algorithm>
 #include "src/ExportDialog/exportdialog.h"
 #include <cmath>
@@ -36,6 +37,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect( ui->pbSingleCapture, &QPushButton::pressed, this, &MainWindow::triggerSingleCapture );
     connect( ui->pbSequenceCapture, &QPushButton::pressed, this, &MainWindow::triggerSequenceCapture );
+    connect( ui->pbLoopSingleCapture, &QPushButton::pressed, this, &MainWindow::triggerLoopSingleCapture );
+    connect( ui->pbLoopSequenceCapture, &QPushButton::pressed, this, &MainWindow::triggerLoopSequenceCapture );
     connect( ui->pbStopCapture, &QPushButton::pressed, this, &MainWindow::triggerStopCapture );
     connect( ui->hsFreq, &QSlider::valueChanged, this, &MainWindow::freqSliderMoved);
     connect( ui->pbFreqCenter, &QPushButton::clicked, this, &MainWindow::goToCenterFrequency );
@@ -96,6 +99,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect( &tinySA, &TinySA::connected, this, [this](){ ui->lbSAStatus->setText("Connected"); });
     connect( &tinySA, &TinySA::disconnected, this, [this](){ ui->lbSAStatus->setText("Disconnected"); });
 
+    // Settings changed during a loop are re-sent to the tinySA before the next sweep / pass
+    auto markSADirty = [this]() { saParamsDirty = true; };
+    connect( ui->sbSACenterFreq, &QDoubleSpinBox::valueChanged, this, markSADirty );
+    connect( ui->sbSASpan, &QDoubleSpinBox::valueChanged, this, markSADirty );
+    connect( ui->sbSAAtt, &QDoubleSpinBox::valueChanged, this, markSADirty );
+    connect( ui->cbRBW, &QComboBox::currentIndexChanged, this, markSADirty );
+    connect( ui->sbSALNA, &QCheckBox::toggled, this, markSADirty );
+
+    setCaptureRunning(false);
     ui->powerPlot->setNormalize(false);
 }
 
@@ -133,52 +145,178 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     return QMainWindow::eventFilter(watched, event);
 }
 
+bool MainWindow::devicesReady() const
+{
+    return tinySA.isOpen() && rotator.isOpen();
+}
+
+void MainWindow::setCaptureRunning(bool running)
+{
+    captureRunning = running;
+    ui->pbSingleCapture->setEnabled(!running);
+    ui->pbLoopSingleCapture->setEnabled(!running);
+    ui->pbSequenceCapture->setEnabled(!running);
+    ui->pbLoopSequenceCapture->setEnabled(!running);
+    ui->pbStopCapture->setEnabled(running);
+}
+
+bool MainWindow::startCapture()
+{
+    if ( captureRunning )
+    {
+        return false;
+    }
+    if ( !devicesReady() )
+    {
+        ui->statusbar->showMessage("tinySA and rotator must both be connected.");
+        return false;
+    }
+
+    stopCapture = false;
+    setCaptureRunning(true);
+    sendSAParameters();
+    sendRotatorParameters();
+    return true;
+}
+
+void MainWindow::endCapture(const QString &message)
+{
+    setCaptureRunning(false);
+    ui->statusbar->showMessage( devicesReady() ? message : "Stopped: device disconnected." );
+}
+
+void MainWindow::waitMs(int ms)
+{
+    // Keeps the UI (and the Stop button) responsive while waiting
+    QEventLoop loop;
+    QTimer::singleShot(ms, &loop, &QEventLoop::quit);
+    loop.exec();
+}
+
+PowerSpectrum MainWindow::captureSpectrum()
+{
+    // Retry until a valid sweep is received, Stop is pressed or the tinySA goes away
+    PowerSpectrum ps = tinySA.capture();
+    while ( ps.power.isEmpty() && !stopCapture && tinySA.isOpen() )
+    {
+        QApplication::processEvents();
+        ps = tinySA.capture();
+    }
+    return ps;
+}
+
 void MainWindow::triggerSingleCapture()
 {
-    stopCapture = false;
-    if ( !tinySA.isOpen() || !rotator.isOpen() )
+    if ( !startCapture() )
     {
         return;
     }
 
-    sendSAParameters();
-    sendRotatorParameters();
-
     ui->statusbar->showMessage("Capturing...");
-
-    bool success = false;
-
-    PowerSpectrum ps = tinySA.capture();
-    while ( ps.power.isEmpty() && !stopCapture )
-    {
-        ps = tinySA.capture();
-        QApplication::processEvents();
-    }
+    PowerSpectrum ps = captureSpectrum();
     if ( !ps.freq.isEmpty() )
     {
         ui->spectrumPlot->setPowerSpectrum(ps);
     }
-    ui->statusbar->showMessage("Done.");
+    endCapture( stopCapture ? "Stopped." : "Done." );
 }
 
-void MainWindow::triggerSequenceCapture()
+void MainWindow::triggerLoopSingleCapture()
 {
-    stopCapture = false;
-    if ( !tinySA.isOpen() || !rotator.isOpen() )
+    if ( !startCapture() )
     {
         return;
     }
 
-    sendSAParameters();
-    sendRotatorParameters();
+    // Continuous sweeps; spectrum analyzer settings changed meanwhile are applied on the fly
+    int count = 0;
+    while ( !stopCapture && tinySA.isOpen() )
+    {
+        if ( saParamsDirty )
+        {
+            sendSAParameters();
+        }
+        PowerSpectrum ps = captureSpectrum();
+        if ( !ps.freq.isEmpty() )
+        {
+            ui->spectrumPlot->setPowerSpectrum(ps);
+            count++;
+            ui->statusbar->showMessage("Loop single: sweep " + QString::number(count) + " (Stop to end)");
+        }
+        QApplication::processEvents();
+    }
+    endCapture("Stopped after " + QString::number(count) + " sweeps.");
+}
 
-    RadiationPattern rp;
-    PowerSpectrum maxPs;
-    powerSpectra.clear();
-    captureAngles.clear();
+void MainWindow::triggerSequenceCapture()
+{
+    if ( !startCapture() )
+    {
+        return;
+    }
+
+    bool completed = runSequence(false, QString(), 1);
+    endCapture( completed ? "Done." : "Stopped." );
+}
+
+void MainWindow::triggerLoopSequenceCapture()
+{
+    if ( !startCapture() )
+    {
+        return;
+    }
+
+    // Each pass replaces the live data. The direction alternates (start->end, end->start...)
+    // so the turntable never has to travel back across the whole range between passes.
+    int pass = 0;
+    while ( !stopCapture && devicesReady() )
+    {
+        pass++;
+        runSequence( (pass % 2) == 0, "Pass " + QString::number(pass) + ": ", pass );
+    }
+    endCapture("Stopped during pass " + QString::number(pass) + ".");
+}
+
+QVector<int> MainWindow::sequenceAngles()
+{
     int startAngle = ui->sbRotatorStart->value();
     int endAngle = ui->sbRotatorEnd->value();
     int angleStep = ui->sbRotatorStep->value();
+    if ( endAngle < startAngle )
+    {
+        endAngle = startAngle;
+        ui->sbRotatorEnd->setValue(endAngle);
+    }
+    if ( angleStep < 1 )
+    {
+        angleStep = 1;
+        ui->sbRotatorStep->setValue(angleStep);
+    }
+
+    QVector<int> angles;
+    for( int a = startAngle; a <= endAngle; a += angleStep )
+    {
+        angles.append(a);
+    }
+    return angles;
+}
+
+bool MainWindow::runSequence(bool reverse, const QString &label, int pass)
+{
+    if ( saParamsDirty )
+    {
+        sendSAParameters(); // settings changed since the previous pass
+    }
+
+    QVector<int> angles = sequenceAngles();
+    if ( reverse )
+    {
+        std::reverse(angles.begin(), angles.end());
+    }
+
+    PowerSpectrum maxPs;
+    powerSpectra.clear();
+    captureAngles.clear();
 
     captureMetadata = QStringList{
         "date," + QDateTime::currentDateTime().toString(Qt::ISODate),
@@ -187,30 +325,32 @@ void MainWindow::triggerSequenceCapture()
         "rbw," + ui->cbRBW->currentText(),
         "attenuation_dB," + QString::number(ui->sbSAAtt->value()),
         "lna," + QString(ui->sbSALNA->isChecked() ? "on" : "off"),
-        "angle_start_deg," + QString::number(startAngle),
-        "angle_end_deg," + QString::number(endAngle),
-        "angle_step_deg," + QString::number(angleStep)
+        "angle_start_deg," + QString::number(ui->sbRotatorStart->value()),
+        "angle_end_deg," + QString::number(ui->sbRotatorEnd->value()),
+        "angle_step_deg," + QString::number(ui->sbRotatorStep->value())
     };
-
-    int a = startAngle;
-    while ( (a <= endAngle) && !stopCapture  )
+    if ( pass > 1 || reverse )
     {
-        int nbTotalCaptures = (endAngle - startAngle)/angleStep + 1;
-        int currentCapture = (a - startAngle)/angleStep + 1;
-        ui->statusbar->showMessage("Capturing " + QString::number(currentCapture) + " out of " + QString::number(nbTotalCaptures));
+        captureMetadata.append("loop_pass," + QString::number(pass));
+        captureMetadata.append(QString("rotation,") + (reverse ? "end to start" : "start to end"));
+    }
+
+    int i = 0;
+    while ( i < angles.length() && !stopCapture && devicesReady() )
+    {
+        int a = angles.at(i);
+        ui->statusbar->showMessage(label + "Capturing " + QString::number(i + 1) + " out of " + QString::number(angles.length()));
 
         qDebug() << "capturing angle " << a;
         rotator.setAngle(a);
-        Sleep(100);
-        PowerSpectrum ps = tinySA.capture();
+        waitMs(100);
+        PowerSpectrum ps = captureSpectrum();
         if (ps.power.length() > 0)
         {
-            rp.angles.push_back(static_cast<float>(a));
-            rp.power.push_back( ps.power.at(0) );
             ui->spectrumPlot->setPowerSpectrum(ps);
             powerSpectra.append(ps);
             captureAngles.append(static_cast<float>(a));
-            a += angleStep;
+            i++;
             if ( powerSpectra.length() == 1 )
             {
                 // New capture: merge its grid, and jump to its center if the selected frequency is outside of it
@@ -223,18 +363,18 @@ void MainWindow::triggerSequenceCapture()
             }
             updateRadiationPattern();
             if ( maxPs.power.isEmpty() ) maxPs = ps;
-            for( int i = 0; i < ps.power.count(); i++ )
+            for( int k = 0; k < ps.power.count(); k++ )
             {
-                if ( maxPs.power.at(i) < ps.power.at(i) )
+                if ( maxPs.power.at(k) < ps.power.at(k) )
                 {
-                    maxPs.power[i] = ps.power.at(i);
+                    maxPs.power[k] = ps.power.at(k);
                 }
             }
             ui->maxSpectrumPlot->setPowerSpectrum(maxPs);
         }
         QApplication::processEvents();
     }
-    ui->statusbar->showMessage("Done.");
+    return i == angles.length();
 }
 
 void MainWindow::triggerStopCapture()
@@ -272,24 +412,12 @@ void MainWindow::sendSAParameters()
     s.lna = ui->sbSALNA->isChecked();
     tinySA.setSetup(s);
     tinySA.setDefaults();
+    saParamsDirty = false;
 }
 
 void MainWindow::sendRotatorParameters()
 {
-    int startAngle = ui->sbRotatorStart->value();
-    int endAngle = ui->sbRotatorEnd->value();
-    int angleStep = ui->sbRotatorStep->value();
-    if ( endAngle < startAngle )
-    {
-        endAngle = startAngle;
-        ui->sbRotatorEnd->setValue(endAngle);
-    }
-    if ( angleStep < 1 )
-    {
-        angleStep = 1;
-        ui->sbRotatorStep->setValue(angleStep);
-    }
-
+    sequenceAngles(); // validates start / end / step
     rotator.setAngle(ui->sbRotatorStart->value());
 }
 
