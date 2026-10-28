@@ -5,6 +5,8 @@
 #include <QListWidgetItem>
 #include "src/tinySA/tinySA.h"
 #include "src/Rotator/rotator.h"
+#include "src/Analysis/patternanalysis.h"
+#include "src/Report/pdfreport.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -50,9 +52,23 @@ private:
     void setSelectedFrequency(double freqHz);
     Q_SLOT void goToCenterFrequency();
     Q_SLOT void goToPeakFrequency();
-    static RadiationPattern patternAtFrequency(const QList<PowerSpectrum> &spectra, const QVector<float> &angles, double freqHz);
     QColor nextImportColor();
-    void changeTraceColor(QListWidgetItem *item);
+    Measurement liveMeasurement() const;
+    static RadiationPattern tracePattern(const Measurement &m, double freqHz);
+    Q_SLOT void openTraceDialog(QListWidgetItem *item);
+    void applyTraceSettings(int row, double angleOffsetDeg, double gainOffsetDb, const QColor &color);
+    void removeImport(int index);
+    Q_SLOT void exportPdf();
+    ReportData buildReportData(const QStringList &notes) const;
+    Q_SLOT void saveConfig();
+    Q_SLOT void loadConfig();
+    bool writeConfigFile(const QString &path, QString *error);
+    bool readConfigFile(const QString &path, QStringList *warnings, QString *error);
+    void markConfigModified();
+    void updateConfigLabel();
+    QString configDisplayName() const;
+    QString lastDir(const QString &key) const;
+    static void rememberDir(const QString &key, const QString &filePath);
     static QIcon colorSwatch(const QColor &color);
     static bool writeMeasurementCsv(const QString &path, const Measurement &m, QString *error);
     static bool readMeasurementCsv(const QString &path, Measurement &m, QString *error);
@@ -68,11 +84,13 @@ private:
     QVector<double> sliderFreqs;            // merged, sorted frequency grid of all traces (Hz)
 
     // ui->lwImports: row 0 is the live capture, row i+1 is importedMeasurements[i]
-    QColor liveColor;
-    bool liveVisible = true;
+    Measurement liveTrace;                   // live capture display settings (data: powerSpectra / captureAngles)
     QList<Measurement> importedMeasurements;
     int importCount = 0;                     // drives the import color sequence
-    QString lastDataDir;
+
+    QString currentConfigPath;               // session config file loaded / saved last
+    bool configModified = false;
+    bool loadingConfig = false;
     QList<int> rpSplitterSizes;              // sizes to restore when un-hiding a graph
 
     const QList<QPair<QString, float>> rbwMap = {

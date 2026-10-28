@@ -18,6 +18,13 @@
 #include <QTimer>
 #include <algorithm>
 #include "src/ExportDialog/exportdialog.h"
+#include "src/TraceDialog/tracedialog.h"
+#include "src/Report/pdfreport.h"
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
+#include <QDesktopServices>
+#include <QUrl>
 #include <cmath>
 #include <limits>
 
@@ -26,7 +33,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    setWindowTitle("polarSA - Beta 1.0.0");
+    setWindowTitle(QString("polarSA - ") + POLARSA_VERSION);
     setWindowIcon(QIcon(":/img/polarsa_notxt.ico"));
 
     // Setup rbw combobox
@@ -46,12 +53,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect( ui->pbExportData, &QPushButton::clicked, this, &MainWindow::exportData );
     connect( ui->pbImportData, &QPushButton::clicked, this, &MainWindow::importData );
     connect( ui->pbClearImports, &QPushButton::clicked, this, &MainWindow::clearImports );
+    connect( ui->pbExportPdf, &QPushButton::clicked, this, &MainWindow::exportPdf );
+    connect( ui->pbLoadConfig, &QPushButton::clicked, this, &MainWindow::loadConfig );
+    connect( ui->pbSaveConfig, &QPushButton::clicked, this, &MainWindow::saveConfig );
     connect( ui->lwImports, &QListWidget::itemChanged, this, [this](QListWidgetItem *item){
         int row = ui->lwImports->row(item);
         bool checked = (item->checkState() == Qt::Checked);
         if ( row == 0 )
         {
-            liveVisible = checked;
+            liveTrace.visible = checked;
         }
         else if ( row - 1 < importedMeasurements.length() )
         {
@@ -59,11 +69,13 @@ MainWindow::MainWindow(QWidget *parent)
         }
         updateRadiationPattern();
     });
-    connect( ui->lwImports, &QListWidget::itemDoubleClicked, this, &MainWindow::changeTraceColor );
+    connect( ui->lwImports, &QListWidget::itemDoubleClicked, this, &MainWindow::openTraceDialog );
 
     // Row 0 of the trace list is always the live capture
-    liveColor = qApp->palette().highlight().color();
-    QListWidgetItem *liveItem = new QListWidgetItem(colorSwatch(liveColor), "Live capture");
+    liveTrace.name = "Live capture";
+    liveTrace.color = qApp->palette().highlight().color();
+    ui->powerPlot->setLiveColor(liveTrace.color);
+    QListWidgetItem *liveItem = new QListWidgetItem(colorSwatch(liveTrace.color), liveTrace.name);
     liveItem->setFlags(liveItem->flags() | Qt::ItemIsUserCheckable);
     liveItem->setCheckState(Qt::Checked);
     liveItem->setToolTip("Current sequence capture");
@@ -83,7 +95,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->mainSplitter->setStretchFactor(1, 0);
 
     QSettings settings;
-    lastDataDir = settings.value("lastDataDir").toString();
     if ( !ui->rpSplitter->restoreState(settings.value("rpSplitter").toByteArray()) )
     {
         ui->rpSplitter->setSizes({650, 350});
@@ -107,14 +118,34 @@ MainWindow::MainWindow(QWidget *parent)
     connect( ui->cbRBW, &QComboBox::currentIndexChanged, this, markSADirty );
     connect( ui->sbSALNA, &QCheckBox::toggled, this, markSADirty );
 
+    // Any setting stored in a session config marks the loaded config as modified
+    auto markModified = [this]() { markConfigModified(); };
+    connect( ui->sbSACenterFreq, &QDoubleSpinBox::valueChanged, this, markModified );
+    connect( ui->sbSASpan, &QDoubleSpinBox::valueChanged, this, markModified );
+    connect( ui->sbSAAtt, &QDoubleSpinBox::valueChanged, this, markModified );
+    connect( ui->cbRBW, &QComboBox::currentIndexChanged, this, markModified );
+    connect( ui->sbSALNA, &QCheckBox::toggled, this, markModified );
+    connect( ui->sbRotatorStart, &QSpinBox::valueChanged, this, markModified );
+    connect( ui->sbRotatorEnd, &QSpinBox::valueChanged, this, markModified );
+    connect( ui->sbRotatorStep, &QSpinBox::valueChanged, this, markModified );
+
+    // Normalized display, remembered between sessions
+    ui->cbNormalize->setChecked(settings.value("display/normalized", false).toBool());
+    ui->powerPlot->setNormalize(ui->cbNormalize->isChecked());
+    connect( ui->cbNormalize, &QCheckBox::toggled, this, [this](bool on) {
+        QSettings().setValue("display/normalized", on);
+        ui->powerPlot->setNormalize(on);
+        markConfigModified();
+        updateRadiationPattern();
+    });
+
     setCaptureRunning(false);
-    ui->powerPlot->setNormalize(false);
+    updateConfigLabel();
 }
 
 MainWindow::~MainWindow()
 {
     QSettings settings;
-    settings.setValue("lastDataDir", lastDataDir);
     settings.setValue("rpSplitter", ui->rpSplitter->saveState());
     settings.setValue("mainSplitter", ui->mainSplitter->saveState());
     delete ui;
@@ -426,26 +457,25 @@ void MainWindow::updateRadiationPattern()
     // The slider indexes sliderFreqs: the merged frequency grid of every trace (live + imports)
     if ( sliderFreqs.isEmpty() )
     {
+        ui->powerPlot->setRadiationPattern(RadiationPattern());
+        ui->powerPlot->setOverlayPatterns({}, {});
+        ui->lbRPMax->setText("-");
+        ui->lbRPMin->setText("-");
         return;
     }
 
     double freqHz = selectedFrequency();
     ui->lbRPFreq->setText( QString::number(freqHz * 1e-6, 'f', 3) + " MHz");
 
-    RadiationPattern rp = patternAtFrequency(powerSpectra, captureAngles, freqHz);
+    // Live pattern, with its rotation / gain adjustments
+    RadiationPattern rp = tracePattern(liveMeasurement(), freqHz);
 
     // Max / min of the live pattern, with the angle where they occur
-    if ( !rp.power.isEmpty() )
+    PatternMetrics lm = PatternAnalysis::compute(rp);
+    if ( lm.valid )
     {
-        int iMax = 0;
-        int iMin = 0;
-        for( int i = 1; i < rp.power.length(); i++ )
-        {
-            if ( rp.power.at(i) > rp.power.at(iMax) ) iMax = i;
-            if ( rp.power.at(i) < rp.power.at(iMin) ) iMin = i;
-        }
-        ui->lbRPMax->setText( QString::number(rp.power.at(iMax), 'f', 1) + " dBm @ " + QString::number(rp.angles.at(iMax)) + QChar(0x00B0) );
-        ui->lbRPMin->setText( QString::number(rp.power.at(iMin), 'f', 1) + " dBm @ " + QString::number(rp.angles.at(iMin)) + QChar(0x00B0) );
+        ui->lbRPMax->setText( QString::number(lm.maxDb, 'f', 1) + " dBm @ " + QString::number(lm.maxAngleDeg, 'f', 0) + QChar(0x00B0) );
+        ui->lbRPMin->setText( QString::number(lm.minDb, 'f', 1) + " dBm @ " + QString::number(lm.minAngleDeg, 'f', 0) + QChar(0x00B0) );
     }
     else
     {
@@ -453,13 +483,13 @@ void MainWindow::updateRadiationPattern()
         ui->lbRPMin->setText("-");
     }
 
-    ui->powerPlot->setRadiationPattern( liveVisible ? rp : RadiationPattern() );
+    ui->powerPlot->setRadiationPattern( liveTrace.visible ? rp : RadiationPattern() );
 
     QList<RadiationPattern> overlays;
     QList<QColor> colors;
     for( const Measurement &m : importedMeasurements )
     {
-        overlays.append( m.visible ? patternAtFrequency(m.spectra, m.angles, freqHz) : RadiationPattern() );
+        overlays.append( m.visible ? tracePattern(m, freqHz) : RadiationPattern() );
         colors.append(m.color);
     }
     ui->powerPlot->setOverlayPatterns(overlays, colors);
@@ -574,32 +604,33 @@ void MainWindow::goToPeakFrequency()
     double peakFreq = 0;
     float peakAngle = 0;
     QString peakTrace;
-    auto search = [&](const QList<PowerSpectrum> &spectra, const QVector<float> &angles, const QString &name) {
-        for( int s = 0; s < spectra.length() && s < angles.length(); s++ )
+    auto search = [&](const Measurement &m) {
+        for( int s = 0; s < m.spectra.length() && s < m.angles.length(); s++ )
         {
-            const PowerSpectrum &ps = spectra.at(s);
+            const PowerSpectrum &ps = m.spectra.at(s);
             for( int i = 0; i < ps.power.length() && i < ps.freq.length(); i++ )
             {
-                if ( !found || ps.power.at(i) > peakPower )
+                float p = ps.power.at(i) + static_cast<float>(m.gainOffsetDb);
+                if ( !found || p > peakPower )
                 {
                     found = true;
-                    peakPower = ps.power.at(i);
+                    peakPower = p;
                     peakFreq = ps.freq.at(i);
-                    peakAngle = angles.at(s);
-                    peakTrace = name;
+                    peakAngle = static_cast<float>(PatternAnalysis::wrap360(m.angles.at(s) + m.angleOffsetDeg));
+                    peakTrace = m.name;
                 }
             }
         }
     };
-    if ( liveVisible )
+    if ( liveTrace.visible )
     {
-        search(powerSpectra, captureAngles, "live capture");
+        search(liveMeasurement());
     }
     for( const Measurement &m : importedMeasurements )
     {
         if ( m.visible )
         {
-            search(m.spectra, m.angles, m.name);
+            search(m);
         }
     }
 
@@ -612,47 +643,6 @@ void MainWindow::goToPeakFrequency()
     ui->statusbar->showMessage("Peak: " + QString::number(peakPower, 'f', 1) + " dBm at "
                                + QString::number(peakFreq * 1e-6, 'f', 3) + " MHz, "
                                + QString::number(peakAngle) + QChar(0x00B0) + " (" + peakTrace + ")");
-}
-
-RadiationPattern MainWindow::patternAtFrequency(const QList<PowerSpectrum> &spectra, const QVector<float> &angles, double freqHz)
-{
-    RadiationPattern rp;
-    if ( spectra.isEmpty() || spectra.first().freq.isEmpty() )
-    {
-        return rp;
-    }
-    const QVector<float> &freq = spectra.first().freq;
-
-    // Nearest frequency bin. A single-frequency measurement is always shown.
-    int bestId = 0;
-    double bestDist = (std::numeric_limits<double>::max)(); // parentheses: avoid the windows.h max() macro
-    for( int i = 0; i < freq.length(); i++ )
-    {
-        double d = std::abs(freq.at(i) - freqHz);
-        if ( d < bestDist )
-        {
-            bestDist = d;
-            bestId = i;
-        }
-    }
-    if ( freq.length() > 1 )
-    {
-        double halfBin = 0.5 * std::abs(freq.at(1) - freq.at(0));
-        if ( bestDist > halfBin )
-        {
-            return rp; // requested frequency is outside of this trace
-        }
-    }
-
-    for( int specId = 0; specId < spectra.length() && specId < angles.length(); specId++ )
-    {
-        if ( bestId < spectra.at(specId).power.length() )
-        {
-            rp.angles.push_back(angles.at(specId));
-            rp.power.push_back(spectra.at(specId).power.at(bestId));
-        }
-    }
-    return rp;
 }
 
 QColor MainWindow::nextImportColor()
@@ -692,32 +682,397 @@ QIcon MainWindow::colorSwatch(const QColor &color)
     return QIcon(swatch);
 }
 
-void MainWindow::changeTraceColor(QListWidgetItem *item)
+Measurement MainWindow::liveMeasurement() const
+{
+    Measurement m = liveTrace;
+    m.spectra = powerSpectra;
+    m.angles = captureAngles;
+    m.metadata = captureMetadata;
+    return m;
+}
+
+RadiationPattern MainWindow::tracePattern(const Measurement &m, double freqHz)
+{
+    return PatternAnalysis::adjusted(PatternAnalysis::patternAt(m.spectra, m.angles, freqHz),
+                                     m.angleOffsetDeg, m.gainOffsetDb);
+}
+
+void MainWindow::openTraceDialog(QListWidgetItem *item)
 {
     int row = ui->lwImports->row(item);
     if ( row < 0 || row - 1 >= importedMeasurements.length() )
     {
         return;
     }
-
-    QColor current = (row == 0) ? liveColor : importedMeasurements.at(row - 1).color;
-    QColor color = QColorDialog::getColor(current, this, "Trace color - " + item->text());
-    if ( !color.isValid() )
+    if ( captureRunning )
     {
-        return; // cancelled
+        ui->statusbar->showMessage("Stop the capture to edit a trace.");
+        return;
     }
 
-    item->setIcon(colorSwatch(color));
+    bool isLive = (row == 0);
+    double freqHz = selectedFrequency();
+    Measurement trace = isLive ? liveMeasurement() : importedMeasurements.at(row - 1);
+
+    // Imports are compared to the live capture (when it has data at this frequency)
+    PatternMetrics reference;
+    if ( !isLive )
+    {
+        reference = PatternAnalysis::compute(tracePattern(liveMeasurement(), freqHz));
+    }
+
+    TraceDialog dialog(trace, isLive, freqHz, reference, this);
+    connect( &dialog, &TraceDialog::previewChanged, this, [this, row](double angle, double gain, const QColor &color) {
+        applyTraceSettings(row, angle, gain, color);
+    });
+
+    if ( dialog.exec() != QDialog::Accepted )
+    {
+        applyTraceSettings(row, trace.angleOffsetDeg, trace.gainOffsetDb, trace.color); // undo the preview
+        return;
+    }
+    if ( dialog.removeRequested() )
+    {
+        removeImport(row - 1);
+        return;
+    }
+    applyTraceSettings(row, dialog.angleOffset(), dialog.gainOffset(), dialog.color());
+}
+
+void MainWindow::applyTraceSettings(int row, double angleOffsetDeg, double gainOffsetDb, const QColor &color)
+{
+    Measurement &t = (row == 0) ? liveTrace : importedMeasurements[row - 1];
+    t.angleOffsetDeg = angleOffsetDeg;
+    t.gainOffsetDb = gainOffsetDb;
+    t.color = color;
+
+    // The list shows the adjustments next to the name
+    QString text = t.name;
+    if ( angleOffsetDeg != 0 || gainOffsetDb != 0 )
+    {
+        text += "  [" + QString::number(angleOffsetDeg, 'f', 1) + QChar(0x00B0) + ", "
+                + (gainOffsetDb >= 0 ? "+" : "") + QString::number(gainOffsetDb, 'f', 1) + " dB]";
+    }
+    QListWidgetItem *item = ui->lwImports->item(row);
+    {
+        QSignalBlocker blocker(ui->lwImports);
+        item->setIcon(colorSwatch(color));
+        item->setText(text);
+    }
+
     if ( row == 0 )
     {
-        liveColor = color;
         ui->powerPlot->setLiveColor(color);
     }
-    else
+    updateRadiationPattern();
+}
+
+void MainWindow::removeImport(int index)
+{
+    if ( index < 0 || index >= importedMeasurements.length() )
     {
-        importedMeasurements[row - 1].color = color;
-        updateRadiationPattern();
+        return;
     }
+    importedMeasurements.removeAt(index);
+    delete ui->lwImports->takeItem(index + 1);
+    updateFrequencyRange();
+    updateRadiationPattern();
+}
+
+QString MainWindow::lastDir(const QString &key) const
+{
+    QSettings settings;
+    QString dir = settings.value("dirs/" + key).toString();
+    if ( dir.isEmpty() )
+    {
+        dir = settings.value("lastDataDir").toString(); // single folder used by earlier versions
+    }
+    return dir;
+}
+
+void MainWindow::rememberDir(const QString &key, const QString &filePath)
+{
+    QSettings().setValue("dirs/" + key, QFileInfo(filePath).absolutePath());
+}
+
+QString MainWindow::configDisplayName() const
+{
+    if ( currentConfigPath.isEmpty() )
+    {
+        return QString();
+    }
+    return QFileInfo(currentConfigPath).fileName() + (configModified ? " (modified)" : "");
+}
+
+void MainWindow::updateConfigLabel()
+{
+    if ( currentConfigPath.isEmpty() )
+    {
+        ui->lbConfigName->setText("No config file");
+        ui->lbConfigName->setToolTip(QString());
+        return;
+    }
+    QString name = QFileInfo(currentConfigPath).fileName();
+    ui->lbConfigName->setText( configModified ? name + " *" : name );
+    ui->lbConfigName->setToolTip( QDir::toNativeSeparators(currentConfigPath)
+                                  + (configModified ? "\nModified since loaded / saved" : QString()) );
+}
+
+void MainWindow::markConfigModified()
+{
+    if ( !configModified && !loadingConfig )
+    {
+        configModified = true;
+        updateConfigLabel();
+    }
+}
+
+/*
+ * Session config (JSON): settings only, no measurement data.
+ * {
+ *   "polarSA_config": 1,
+ *   "spectrum_analyzer": { "center_MHz", "span_MHz", "rbw", "attenuation_dB", "lna" },
+ *   "rotator": { "start_deg", "end_deg", "step_deg" },
+ *   "display": { "normalized" },
+ *   "notes": { "dut", "antenna", "matching", "polarization", "operator", "comment" }
+ * }
+ */
+void MainWindow::saveConfig()
+{
+    QString defaultName = currentConfigPath.isEmpty() ? QString("polarSA_config.json") : QFileInfo(currentConfigPath).fileName();
+    QString path = QFileDialog::getSaveFileName(this, "Save Session Config",
+                                                QDir(lastDir("config")).filePath(defaultName),
+                                                "polarSA config (*.json);;All files (*)");
+    if ( path.isEmpty() )
+    {
+        return;
+    }
+    rememberDir("config", path);
+
+    QString error;
+    if ( !writeConfigFile(path, &error) )
+    {
+        QMessageBox::warning(this, "Save Session Config", "Cannot write the file:\n" + error);
+        return;
+    }
+    ui->statusbar->showMessage("Config saved to " + QDir::toNativeSeparators(path));
+}
+
+bool MainWindow::writeConfigFile(const QString &path, QString *error)
+{
+    QJsonObject sa;
+    sa["center_MHz"] = ui->sbSACenterFreq->value();
+    sa["span_MHz"] = ui->sbSASpan->value();
+    sa["rbw"] = ui->cbRBW->currentText();
+    sa["attenuation_dB"] = ui->sbSAAtt->value();
+    sa["lna"] = ui->sbSALNA->isChecked();
+
+    QJsonObject rot;
+    rot["start_deg"] = ui->sbRotatorStart->value();
+    rot["end_deg"] = ui->sbRotatorEnd->value();
+    rot["step_deg"] = ui->sbRotatorStep->value();
+
+    QJsonObject display;
+    display["normalized"] = ui->cbNormalize->isChecked();
+
+    QJsonObject notes;
+    QSettings settings;
+    settings.beginGroup("export");
+    for( const QString &key : {"dut", "antenna", "matching", "polarization", "operator", "comment"} )
+    {
+        notes[key] = settings.value(key).toString();
+    }
+    settings.endGroup();
+
+    QJsonObject root;
+    root["polarSA_config"] = 1;
+    root["app_version"] = POLARSA_VERSION;
+    root["saved"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    root["spectrum_analyzer"] = sa;
+    root["rotator"] = rot;
+    root["display"] = display;
+    root["notes"] = notes;
+
+    QFile file(path);
+    if ( !file.open(QIODevice::WriteOnly | QIODevice::Truncate) || file.write(QJsonDocument(root).toJson(QJsonDocument::Indented)) < 0 )
+    {
+        *error = file.errorString();
+        return false;
+    }
+
+    currentConfigPath = path;
+    configModified = false;
+    updateConfigLabel();
+    return true;
+}
+
+void MainWindow::loadConfig()
+{
+    QString path = QFileDialog::getOpenFileName(this, "Load Session Config", lastDir("config"),
+                                                "polarSA config (*.json);;All files (*)");
+    if ( path.isEmpty() )
+    {
+        return;
+    }
+    rememberDir("config", path);
+
+    QString error;
+    QStringList warnings;
+    if ( !readConfigFile(path, &warnings, &error) )
+    {
+        QMessageBox::warning(this, "Load Session Config", error);
+        return;
+    }
+    ui->statusbar->showMessage("Config loaded: " + QFileInfo(path).fileName());
+    if ( !warnings.isEmpty() )
+    {
+        QMessageBox::warning(this, "Load Session Config", warnings.join("\n"));
+    }
+}
+
+bool MainWindow::readConfigFile(const QString &path, QStringList *warnings, QString *error)
+{
+    QFile file(path);
+    if ( !file.open(QIODevice::ReadOnly) )
+    {
+        *error = "Cannot read the file:\n" + file.errorString();
+        return false;
+    }
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+    if ( doc.isNull() || !doc.isObject() || !doc.object().contains("polarSA_config") )
+    {
+        *error = "Not a polarSA config file" + (doc.isNull() ? ":\n" + parseError.errorString() : QString("."));
+        return false;
+    }
+    QJsonObject root = doc.object();
+
+    loadingConfig = true;
+    QJsonObject sa = root["spectrum_analyzer"].toObject();
+    if ( sa.contains("center_MHz") ) ui->sbSACenterFreq->setValue(sa["center_MHz"].toDouble());
+    if ( sa.contains("span_MHz") ) ui->sbSASpan->setValue(sa["span_MHz"].toDouble());
+    if ( sa.contains("attenuation_dB") ) ui->sbSAAtt->setValue(sa["attenuation_dB"].toDouble());
+    if ( sa.contains("lna") ) ui->sbSALNA->setChecked(sa["lna"].toBool());
+    if ( sa.contains("rbw") )
+    {
+        int index = ui->cbRBW->findText(sa["rbw"].toString());
+        if ( index >= 0 )
+        {
+            ui->cbRBW->setCurrentIndex(index);
+        }
+        else
+        {
+            warnings->append("unknown RBW '" + sa["rbw"].toString() + "', kept " + ui->cbRBW->currentText());
+        }
+    }
+
+    QJsonObject rot = root["rotator"].toObject();
+    if ( rot.contains("start_deg") ) ui->sbRotatorStart->setValue(rot["start_deg"].toInt());
+    if ( rot.contains("end_deg") ) ui->sbRotatorEnd->setValue(rot["end_deg"].toInt());
+    if ( rot.contains("step_deg") ) ui->sbRotatorStep->setValue(rot["step_deg"].toInt());
+
+    QJsonObject display = root["display"].toObject();
+    if ( display.contains("normalized") ) ui->cbNormalize->setChecked(display["normalized"].toBool());
+
+    // Notes pre-fill the next export / report dialog
+    if ( root.contains("notes") )
+    {
+        QJsonObject notes = root["notes"].toObject();
+        QSettings settings;
+        settings.beginGroup("export");
+        for( const QString &key : notes.keys() )
+        {
+            settings.setValue(key, notes[key].toString());
+        }
+        settings.endGroup();
+    }
+    loadingConfig = false;
+
+    currentConfigPath = path;
+    configModified = false;
+    updateConfigLabel();
+    return true;
+}
+
+ReportData MainWindow::buildReportData(const QStringList &notes) const
+{
+    ReportData data;
+    double freqHz = selectedFrequency();
+    data.configName = configDisplayName();
+    data.freqHz = freqHz;
+    data.normalized = ui->cbNormalize->isChecked();
+    data.notes = notes;
+    data.captureSettings = powerSpectra.isEmpty() ? QStringList() : captureMetadata;
+    data.polarPlot = ui->powerPlot;
+    data.maxPlot = powerSpectra.isEmpty() ? nullptr : ui->maxSpectrumPlot;
+
+    // Visible traces: live capture first, then imports in list order
+    QList<QPair<Measurement, bool>> traces; // (trace, isLive)
+    if ( !powerSpectra.isEmpty() && liveTrace.visible )
+    {
+        traces.append({liveMeasurement(), true});
+    }
+    for( const Measurement &m : importedMeasurements )
+    {
+        if ( m.visible )
+        {
+            traces.append({m, false});
+        }
+    }
+    for( const auto &entry : traces )
+    {
+        const Measurement &m = entry.first;
+        ReportTrace t;
+        t.name = m.name;
+        t.source = entry.second ? QString() : QDir::toNativeSeparators(m.sourcePath);
+        t.color = m.color;
+        t.angleOffsetDeg = m.angleOffsetDeg;
+        t.gainOffsetDb = m.gainOffsetDb;
+        t.metrics = PatternAnalysis::compute(tracePattern(m, freqHz));
+        t.metadata = m.metadata;
+        data.traces.append(t);
+    }
+    return data;
+}
+
+void MainWindow::exportPdf()
+{
+    if ( sliderFreqs.isEmpty() )
+    {
+        QMessageBox::information(this, "PDF Report", "Nothing to report: capture or import data first.");
+        return;
+    }
+
+    ReportData preview = buildReportData(QStringList());
+    QString summary = "Report at " + QString::number(preview.freqHz * 1e-6, 'f', 3) + " MHz, "
+                      + QString::number(preview.traces.length()) + " visible trace(s)";
+    ExportDialog dialog(summary, this, "PDF Report - Notes", "Create PDF...");
+    if ( dialog.exec() != QDialog::Accepted )
+    {
+        return;
+    }
+
+    QString dut = dialog.dutName();
+    dut.replace(QRegularExpression("[^A-Za-z0-9_.-]+"), "_");
+    QString defaultName = "polarSA_report_" + (dut.isEmpty() ? QString() : dut + "_")
+                          + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + ".pdf";
+    QString path = QFileDialog::getSaveFileName(this, "PDF Report", QDir(lastDir("report")).filePath(defaultName),
+                                                "PDF files (*.pdf)");
+    if ( path.isEmpty() )
+    {
+        return;
+    }
+    rememberDir("report", path);
+
+    ReportData data = buildReportData(dialog.metadata());
+    QString error;
+    if ( !PdfReport::write(path, data, &error) )
+    {
+        QMessageBox::warning(this, "PDF Report", "Report failed:\n" + error);
+        return;
+    }
+    ui->statusbar->showMessage("Report saved to " + QDir::toNativeSeparators(path));
+    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 }
 
 void MainWindow::exportData()
@@ -745,18 +1100,41 @@ void MainWindow::exportData()
     QString defaultName = "polarSA_" + (dut.isEmpty() ? QString() : dut + "_")
                           + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + ".csv";
     QString path = QFileDialog::getSaveFileName(this, "Export Data",
-                                                QDir(lastDataDir).filePath(defaultName),
+                                                QDir(lastDir("export")).filePath(defaultName),
                                                 "CSV files (*.csv);;All files (*)");
     if ( path.isEmpty() )
     {
         return;
     }
-    lastDataDir = QFileInfo(path).absolutePath();
+    rememberDir("export", path);
 
     Measurement m;
-    m.metadata = dialog.metadata() + captureMetadata;
+    m.metadata = dialog.metadata();
+    if ( !currentConfigPath.isEmpty() )
+    {
+        m.metadata.append("config," + configDisplayName());
+    }
+    m.metadata += captureMetadata;
     m.angles = captureAngles;
     m.spectra = powerSpectra;
+
+    // The file holds what is displayed: rotation / gain adjustments of the live trace are applied
+    if ( liveTrace.angleOffsetDeg != 0 || liveTrace.gainOffsetDb != 0 )
+    {
+        for( float &a : m.angles )
+        {
+            a += static_cast<float>(liveTrace.angleOffsetDeg);
+        }
+        for( PowerSpectrum &ps : m.spectra )
+        {
+            for( float &p : ps.power )
+            {
+                p += static_cast<float>(liveTrace.gainOffsetDb);
+            }
+        }
+        m.metadata.append("applied_rotation_deg," + QString::number(liveTrace.angleOffsetDeg, 'f', 1));
+        m.metadata.append("applied_gain_offset_dB," + QString::number(liveTrace.gainOffsetDb, 'f', 1));
+    }
 
     QString error;
     if ( !writeMeasurementCsv(path, m, &error) )
@@ -769,13 +1147,13 @@ void MainWindow::exportData()
 
 void MainWindow::importData()
 {
-    QStringList paths = QFileDialog::getOpenFileNames(this, "Import Data", lastDataDir,
+    QStringList paths = QFileDialog::getOpenFileNames(this, "Import Data", lastDir("import"),
                                                       "CSV files (*.csv);;All files (*)");
     if ( paths.isEmpty() )
     {
         return;
     }
-    lastDataDir = QFileInfo(paths.first()).absolutePath();
+    rememberDir("import", paths.first());
 
     QStringList errors;
     int nbImported = 0;
@@ -789,6 +1167,7 @@ void MainWindow::importData()
             continue;
         }
         m.name = QFileInfo(path).fileName();
+        m.sourcePath = QFileInfo(path).absoluteFilePath();
         m.color = nextImportColor();
         importedMeasurements.append(m);
         nbImported++;

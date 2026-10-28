@@ -19,30 +19,7 @@ void SpectrumPlot::initPlot()
     graph(0)->setLineStyle(QCPGraph::lsLine);
     graph(0)->setScatterStyle(QCPScatterStyle::ssNone);
 
-    // --- use Qt theme colors ---
-    QPalette pal = qApp->palette();
-
-    QColor bg = pal.window().color();
-    QColor fg = pal.windowText().color();
-    QColor grid = pal.mid().color();
-
-    setBackground(bg);
-
-    xAxis->setBasePen(QPen(fg));
-    yAxis->setBasePen(QPen(fg));
-    xAxis->setTickPen(QPen(fg));
-    yAxis->setTickPen(QPen(fg));
-    xAxis->setSubTickPen(QPen(fg));
-    yAxis->setSubTickPen(QPen(fg));
-    xAxis->setTickLabelColor(fg);
-    yAxis->setTickLabelColor(fg);
-    xAxis->setLabelColor(fg);
-    yAxis->setLabelColor(fg);
-
-    xAxis->grid()->setPen(QPen(grid, 1, Qt::DotLine));
-    yAxis->grid()->setPen(QPen(grid, 1, Qt::DotLine));
-
-    graph(0)->setPen(QPen(pal.highlight().color(), 2));
+    applyTheme();
 
     // --- MHz axis ticker ---
     auto ticker = QSharedPointer<QCPAxisTickerFixed>::create();
@@ -72,6 +49,39 @@ void SpectrumPlot::initPlot()
     xAxis->setRange(0, 1);
 
     // setOpenGl(true);
+}
+
+void SpectrumPlot::setPrintTheme(bool on)
+{
+    mPrintTheme = on;
+    applyTheme();
+}
+
+void SpectrumPlot::applyTheme()
+{
+    // --- use Qt theme colors (or light ones for printing) ---
+    QPalette pal = mPrintTheme ? printPalette() : qApp->palette();
+
+    QColor bg = pal.window().color();
+    QColor fg = pal.windowText().color();
+    QColor grid = pal.mid().color();
+
+    setBackground(bg);
+
+    for (QCPAxis *axis : {xAxis, yAxis, xAxis2, yAxis2})
+    {
+        axis->setBasePen(QPen(fg));
+        axis->setTickPen(QPen(fg));
+        axis->setSubTickPen(QPen(fg));
+        axis->setTickLabelColor(fg);
+        axis->setLabelColor(fg);
+    }
+
+    xAxis->grid()->setPen(QPen(grid, 1, Qt::DotLine));
+    yAxis->grid()->setPen(QPen(grid, 1, Qt::DotLine));
+
+    if (graphCount() > 0)
+        graph(0)->setPen(QPen(pal.highlight().color(), 2));
 }
 
 void SpectrumPlot::clearSpectrum()

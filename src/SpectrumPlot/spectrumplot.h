@@ -15,9 +15,13 @@ public:
     ~SpectrumPlot();
     void setPowerSpectrum(const PowerSpectrum &spectrum);
     void clearSpectrum();
+    void setPrintTheme(bool on);    // light colors for PDF / print rendering
 
 private:
     void initPlot();
+    void applyTheme();
+
+    bool mPrintTheme = false;
 };
 
 

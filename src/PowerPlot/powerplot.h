@@ -26,6 +26,7 @@ public:
     void setOverlayPatterns(const QList<RadiationPattern> &patterns, const QList<QColor> &colors);
 
     void setLiveColor(const QColor &color);
+    void setPrintTheme(bool on);    // light colors for PDF / print rendering
     void setNormalize(bool en);
     void setRadialRange(double minVal, double maxVal);
 
@@ -42,6 +43,7 @@ private:
     QList<QCPPolarGraph*> mOverlayGraphs;
 
     QColor mLiveColor;      // invalid = theme highlight color
+    bool mPrintTheme = false;
     bool mNormalize = true;
     double mManualMin = -40.0;
     double mManualMax = 0.0;

@@ -15,7 +15,9 @@ class ExportDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit ExportDialog(const QString &summary, QWidget *parent = nullptr);
+    explicit ExportDialog(const QString &summary, QWidget *parent = nullptr,
+                          const QString &title = "Export Data - Measurement notes",
+                          const QString &okText = "Export...");
 
     // "key,value" lines ready to be written as CSV metadata; empty fields are skipped
     QStringList metadata() const;

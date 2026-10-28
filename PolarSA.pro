@@ -1,4 +1,4 @@
-QT       += core gui printsupport serialport opengl
+QT       += core gui printsupport serialport opengl svg
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -13,7 +13,10 @@ DEFINES += QCUSTOMPLOT_USE_OPENGL
 SOURCES += \
     main.cpp \
     lib/QCustomPlot/qcustomplot.cpp \
+    src/Analysis/patternanalysis.cpp \
     src/ExportDialog/exportdialog.cpp \
+    src/Report/pdfreport.cpp \
+    src/TraceDialog/tracedialog.cpp \
     src/PowerPlot/powerplot.cpp \
     src/Rotator/rotator.cpp \
     src/SpectrumPlot/spectrumplot.cpp \
@@ -23,7 +26,10 @@ SOURCES += \
 HEADERS += \
     inc/defines.h \
     lib/QCustomPlot/qcustomplot.h \
+    src/Analysis/patternanalysis.h \
     src/ExportDialog/exportdialog.h \
+    src/Report/pdfreport.h \
+    src/TraceDialog/tracedialog.h \
     src/PowerPlot/powerplot.h \
     src/Rotator/rotator.h \
     src/SpectrumPlot/spectrumplot.h \

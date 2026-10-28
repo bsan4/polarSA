@@ -10,10 +10,10 @@
 #include <QSettings>
 #include <QVBoxLayout>
 
-ExportDialog::ExportDialog(const QString &summary, QWidget *parent)
+ExportDialog::ExportDialog(const QString &summary, QWidget *parent, const QString &title, const QString &okText)
     : QDialog(parent)
 {
-    setWindowTitle("Export Data - Measurement notes");
+    setWindowTitle(title);
 
     QSettings settings;
     settings.beginGroup("export");
@@ -47,7 +47,7 @@ ExportDialog::ExportDialog(const QString &summary, QWidget *parent)
     form->addRow("Comments", mComment);
 
     QDialogButtonBox *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    buttons->button(QDialogButtonBox::Ok)->setText("Export...");
+    buttons->button(QDialogButtonBox::Ok)->setText(okText);
     connect(buttons, &QDialogButtonBox::accepted, this, [this]() { saveFields(); accept(); });
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 

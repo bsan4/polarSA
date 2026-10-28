@@ -90,11 +90,36 @@ angle_deg/freq_Hz,95000000,...   <- frequencies in Hz
 10,-80.13,...
 ```
 
-**Import...** loads one or several of these files and overlays their radiation patterns on the polar plot, at the frequency selected by the cursor (nearest frequency bin; a file whose range does not include that frequency is not drawn). The frequency cursor spans the frequencies of all traces (live capture and imports), so every trace stays reachable even when they were measured in different bands. **Center** jumps to the middle of the live capture (or of the first visible import), **Peak** to the frequency of maximum power over all visible traces and angles. Colors are assigned in import order: red, yellow, cyan, then a set of distinct colors (green, orange, blue, magenta...), then random. In the **Traces** list, the checkbox shows/hides a trace (the live capture included) and a double-click opens a color picker. Hovering a file shows its notes and settings. **Clear Imports** removes all imported files.
+**Import...** loads one or several of these files and overlays their radiation patterns on the polar plot, at the frequency selected by the cursor (nearest frequency bin; a file whose range does not include that frequency is not drawn). The frequency cursor spans the frequencies of all traces (live capture and imports), so every trace stays reachable even when they were measured in different bands. **Center** jumps to the middle of the live capture (or of the first visible import), **Peak** to the frequency of maximum power over all visible traces and angles. Colors are assigned in import order: red, yellow, cyan, then a set of distinct colors (green, orange, blue, magenta...), then random. In the **Traces** list, the checkbox shows/hides a trace (the live capture included). Hovering a file shows its notes and settings. **Clear Imports** removes all imported files.
 
-The radiation pattern and Max Emissions graphs are separated by a splitter: drag it to resize, drag it to an edge to hide a graph, or double-click it to hide/show Max Emissions.
+The radiation pattern and Max Emissions graphs are separated by a splitter: drag it to resize, drag it to an edge to hide a graph, or double-click it to hide/show Max Emissions. **Normalized** shows every trace relative to its own maximum (0 dB).
 
-Files using `;` or tab separators with a `,` decimal mark (e.g. re-saved by a French-locale spreadsheet) are accepted on import.
+Files using `;` or tab separators with a `,` decimal mark (e.g. re-saved by a French-locale spreadsheet) are accepted on import. Export, import, report and config file dialogs each remember their last folder.
+
+---
+
+### Trace Analysis and Adjustments
+
+Double-click a trace (live capture or import) to open its dialog:
+
+- **Analysis** at the selected frequency: maximum and its angle, minimum, max − min, average (power average over the angles), −3 dB beamwidth around the maximum (interpolated; "omnidirectional" when the pattern never drops 3 dB), front-to-back ratio (maximum vs the value 180° away), angular coverage. Imports are also compared to the live capture (difference of max and average).
+- **Rotation**: rotates the whole pattern around the center, e.g. to align two antennas measured with a different orientation. **Max → 0°** aligns the maximum with 0°.
+- **Gain offset** (dB): added to every value, e.g. to compensate a cable, an attenuator or a different reference level.
+- **Color**, source file, frequency range and the file's **metadata**; **Remove trace** for imports.
+
+Changes are previewed live; Cancel restores the previous settings. Adjustments are display settings: they are shown in the Traces list and the report, and **Export...** applies the live capture's adjustments to the exported data (recorded in its metadata).
+
+---
+
+### PDF Report
+
+**PDF Report...** asks for notes (same fields as the export), then creates an A4 report: header with logo, date and config file name, notes and capture settings, radiation pattern at the selected frequency with an analysis table of the visible traces, Max Emissions plot, and the details / metadata of every trace. Plots are rendered with light colors for printing.
+
+---
+
+### Session Config Files
+
+**Session config → Save... / Load...** stores the settings (no measurement data) in a JSON file: spectrum analyzer (center, span, RBW, attenuation, LNA), rotator (start, end, step), display (normalized) and the notes used to pre-fill the export / report dialogs. The loaded config name is shown in the panel (`*` when settings were changed since), and is written in the CSV metadata and the PDF report.
 
 ---
 

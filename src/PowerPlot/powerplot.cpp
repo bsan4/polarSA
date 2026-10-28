@@ -20,6 +20,12 @@ void PowerPlot::setLiveColor(const QColor &color)
     replot();
 }
 
+void PowerPlot::setPrintTheme(bool on)
+{
+    mPrintTheme = on;
+    applyTheme();
+}
+
 void PowerPlot::setNormalize(bool en)
 {
     mNormalize = en;
@@ -41,7 +47,7 @@ void PowerPlot::applyTheme()
     if (!qApp)
         return;
 
-    QPalette pal = qApp->palette();
+    QPalette pal = mPrintTheme ? printPalette() : qApp->palette();
 
     const QColor bg   = pal.window().color();
     const QColor fg   = pal.windowText().color();
