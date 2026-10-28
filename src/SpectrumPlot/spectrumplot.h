@@ -23,12 +23,17 @@ public:
     // EMC limit lines (dashed, with a legend). includeInScale: also fit the y axis on them.
     void setLimits(const LimitSet &limits, bool includeInScale);
     void setUnit(const QString &unit);          // y axis unit, e.g. "dBm" or "dBuV/m"
+
+    // Autoscale on every data update (per axis); enabling an axis rescales it at once
+    void setAutoscale(bool x, bool y);
+    // One-time rescale of the chosen axes. Y fits the data inside the displayed X range.
+    void rescale(bool x, bool y);
     void setPrintTheme(bool on);                // light colors for PDF / print rendering
 
 private:
     void initPlot();
     void applyTheme();
-    void rescaleToData();
+    void rescaleToData(bool x, bool y);
 
     bool mPrintTheme = false;
     QColor mTraceColor;
@@ -36,6 +41,8 @@ private:
     QList<QCPGraph*> mLimitGraphs;
     LimitSet mLimits;
     bool mLimitsInScale = false;
+    bool mAutoX = true;
+    bool mAutoY = true;
 };
 
 

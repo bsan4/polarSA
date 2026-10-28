@@ -143,7 +143,7 @@ void SpectrumPlot::setPowerSpectrum(const PowerSpectrum &spectrum)
         addGraph();
 
     fillGraph(graph(0), spectrum);
-    rescaleToData();
+    rescaleToData(mAutoX, mAutoY);
     replot();
 }
 
@@ -164,7 +164,7 @@ void SpectrumPlot::setOverlaySpectra(const QList<PowerSpectrum> &spectra, const 
         mOverlayGraphs[i]->setPen(QPen(i < colors.size() ? colors[i] : QColor(Qt::gray), 1.5));
         fillGraph(mOverlayGraphs[i], spectra[i]);
     }
-    rescaleToData();
+    rescaleToData(mAutoX, mAutoY);
     replot();
 }
 
@@ -202,18 +202,38 @@ void SpectrumPlot::setLimits(const LimitSet &limits, bool includeInScale)
         mLimitGraphs.append(g);
     }
     legend->setVisible(!mLimitGraphs.isEmpty());
-    rescaleToData();
+    rescaleToData(mAutoX, mAutoY);
     replot();
 }
 
-void SpectrumPlot::rescaleToData()
+void SpectrumPlot::setAutoscale(bool x, bool y)
 {
-    // x: span of the measured data only (limit lines cover whole regulation bands)
-    double xMin = 0, xMax = 0, yMin = 0, yMax = 0;
-    bool found = false;
+    const bool newX = x && !mAutoX;
+    const bool newY = y && !mAutoY;
+    mAutoX = x;
+    mAutoY = y;
+    if (newX || newY)
+        rescale(newX, newY);
+}
+
+void SpectrumPlot::rescale(bool x, bool y)
+{
+    rescaleToData(x, y);
+    replot();
+}
+
+void SpectrumPlot::rescaleToData(bool doX, bool doY)
+{
+    if (!doX && !doY)
+        return;
+
     QList<QCPGraph*> dataGraphs = mOverlayGraphs;
     if (graphCount() > 0)
         dataGraphs.prepend(graph(0));
+
+    // x: span of the measured data only (limit lines cover whole regulation bands)
+    double xMin = 0, xMax = 0;
+    bool found = false;
     for (QCPGraph *g : dataGraphs)
     {
         for (auto it = g->data()->constBegin(); it != g->data()->constEnd(); ++it)
@@ -223,24 +243,57 @@ void SpectrumPlot::rescaleToData()
             if (!found)
             {
                 xMin = xMax = it->key;
-                yMin = yMax = it->value;
                 found = true;
             }
             xMin = qMin(xMin, it->key);
             xMax = qMax(xMax, it->key);
-            yMin = qMin(yMin, it->value);
-            yMax = qMax(yMax, it->value);
         }
     }
     if (!found)
         return;
 
-    // y: also the limit levels inside the displayed frequency span
+    if (doX)
+    {
+        if (xMax - xMin < 1e-9)
+        {
+            xMin -= 0.5;
+            xMax += 0.5;
+        }
+        xAxis->setRange(xMin, xMax);
+        xAxis->scaleRange(1.02, xAxis->range().center());
+    }
+    if (!doY)
+        return;
+
+    // y: data inside the displayed x range (all data if none is visible), plus the limit levels there
+    const double viewMin = xAxis->range().lower;
+    const double viewMax = xAxis->range().upper;
+    double yMin = 0, yMax = 0;
+    bool foundY = false;
+    for (int pass = 0; pass < 2 && !foundY; ++pass)
+    {
+        for (QCPGraph *g : dataGraphs)
+        {
+            for (auto it = g->data()->constBegin(); it != g->data()->constEnd(); ++it)
+            {
+                if (std::isnan(it->value) || (pass == 0 && (it->key < viewMin || it->key > viewMax)))
+                    continue;
+                if (!foundY)
+                {
+                    yMin = yMax = it->value;
+                    foundY = true;
+                }
+                yMin = qMin(yMin, it->value);
+                yMax = qMax(yMax, it->value);
+            }
+        }
+    }
+
     if (mLimitsInScale)
     {
         for (const LimitLine &line : mLimits.lines)
         {
-            for (double xMHz : {xMin, 0.5 * (xMin + xMax), xMax})
+            for (double xMHz : {viewMin, 0.5 * (viewMin + viewMax), viewMax})
             {
                 double level;
                 if (line.valueAt(xMHz * 1e6, &level))
@@ -253,7 +306,7 @@ void SpectrumPlot::rescaleToData()
             {
                 for (const QPair<double, double> &p : {qMakePair(s.startHz, s.startLevel), qMakePair(s.stopHz, s.stopLevel)})
                 {
-                    if (p.first / 1e6 >= xMin && p.first / 1e6 <= xMax)
+                    if (p.first / 1e6 >= viewMin && p.first / 1e6 <= viewMax)
                     {
                         yMin = qMin(yMin, p.second);
                         yMax = qMax(yMax, p.second);
@@ -263,18 +316,11 @@ void SpectrumPlot::rescaleToData()
         }
     }
 
-    if (xMax - xMin < 1e-9)
-    {
-        xMin -= 0.5;
-        xMax += 0.5;
-    }
     if (yMax - yMin < 1e-6)
     {
         yMin -= 1;
         yMax += 1;
     }
-    xAxis->setRange(xMin, xMax);
     yAxis->setRange(yMin, yMax);
     yAxis->scaleRange(1.1, yAxis->range().center());
-    xAxis->scaleRange(1.02, xAxis->range().center());
 }

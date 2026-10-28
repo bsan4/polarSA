@@ -187,6 +187,38 @@ MainWindow::MainWindow(QWidget *parent)
         updateRadiationPattern();
     });
 
+    // Max Emissions autoscale: checkboxes = on every update, buttons = once. Remembered between sessions.
+    ui->cbAutoX->setChecked(settings.value("maxEmissions/autoX", true).toBool());
+    ui->cbAutoY->setChecked(settings.value("maxEmissions/autoY", true).toBool());
+    auto applyAutoscale = [this]() {
+        const bool x = ui->cbAutoX->isChecked();
+        const bool y = ui->cbAutoY->isChecked();
+        {
+            QSignalBlocker blocker(ui->cbAutoXY);
+            ui->cbAutoXY->setChecked(x && y);
+        }
+        QSettings settings;
+        settings.setValue("maxEmissions/autoX", x);
+        settings.setValue("maxEmissions/autoY", y);
+        ui->maxSpectrumPlot->setAutoscale(x, y);
+    };
+    applyAutoscale();
+    connect( ui->cbAutoX, &QCheckBox::toggled, this, applyAutoscale );
+    connect( ui->cbAutoY, &QCheckBox::toggled, this, applyAutoscale );
+    connect( ui->cbAutoXY, &QCheckBox::toggled, this, [this](bool on) {
+        QSignalBlocker blockX(ui->cbAutoX);
+        QSignalBlocker blockY(ui->cbAutoY);
+        ui->cbAutoX->setChecked(on);
+        ui->cbAutoY->setChecked(on);
+        QSettings settings;
+        settings.setValue("maxEmissions/autoX", on);
+        settings.setValue("maxEmissions/autoY", on);
+        ui->maxSpectrumPlot->setAutoscale(on, on);
+    });
+    connect( ui->pbRescaleX, &QPushButton::clicked, this, [this]() { ui->maxSpectrumPlot->rescale(true, false); } );
+    connect( ui->pbRescaleY, &QPushButton::clicked, this, [this]() { ui->maxSpectrumPlot->rescale(false, true); } );
+    connect( ui->pbRescaleXY, &QPushButton::clicked, this, [this]() { ui->maxSpectrumPlot->rescale(true, true); } );
+
     setCaptureRunning(false);
     updateConfigLabel();
     updateUnits();

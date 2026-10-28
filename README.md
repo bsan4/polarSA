@@ -79,7 +79,7 @@ Capture buttons are disabled while a capture runs; **Stop** is only enabled then
 ### User Interface
 
 - **Menus**: **File** (Import Trace(s), Export Trace, Export PDF Report, Import / Export Config, Import Calibration, Import Limits, Quit), **Edit** (Clear Imports, Clear Graphs: removes the live capture and keeps the imports, Clear Calibration, Clear Limits) and **Help** (About).
-- **Tabs**: Spectrum (last sweep), Radiation Pattern (polar plot at the frequency cursor), Max Emissions (max hold over all angles).
+- **Tabs**: Spectrum (last sweep), Radiation Pattern (polar plot at the frequency cursor), Max Emissions (max hold over all angles). Under the Max Emissions graph, the **Autoscale on update** boxes (X, Y, XY) rescale the axes on every update, and the **Rescale now** buttons rescale once; Y fits the data inside the displayed frequency range, so you can zoom in frequency and then rescale Y. Uncheck autoscale to keep a zoom while data keeps updating.
 - **Right panel**: spectrum analyzer and level settings, rotator angles, capture buttons and the Traces list. The splitter between the graphs and the panel can be dragged.
 - **Status bar**: the config, calibration and limits in use (hover for details).
 
