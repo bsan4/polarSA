@@ -1,0 +1,35 @@
+{
+    "app_version": "Beta 1.0.0",
+    "corrections": {
+        "antenna_factor_dB_m": 0,
+        "calibration_file": "",
+        "ext_gain_dB": 0,
+        "limits_file": "",
+        "unit": "dBm"
+    },
+    "display": {
+        "normalized": false
+    },
+    "notes": {
+        "antenna": "PCB inverted-F, matched",
+        "comment": "",
+        "dut": "Sensor board rev B",
+        "matching": "pi 3.3nH / 1.8pF / NC",
+        "operator": "Quantor Innovation",
+        "polarization": "Vertical"
+    },
+    "polarSA_config": 1,
+    "rotator": {
+        "end_deg": 360,
+        "start_deg": 0,
+        "step_deg": 5
+    },
+    "saved": "2026-10-29T06:53:47",
+    "spectrum_analyzer": {
+        "attenuation_dB": 0,
+        "center_MHz": 868,
+        "lna": false,
+        "rbw": "10kHz",
+        "span_MHz": 2
+    }
+}

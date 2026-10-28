@@ -1,0 +1,18 @@
+# unit,dBuV/m
+# description,EXAMPLE values (fictitious broadband antenna + 3 m cable): 107 + AF + cable loss. Replace with your own setup calibration.
+frequency_MHz,correction_dB
+30,115.7
+40,116.8
+50,117.7
+70,119.0
+100,120.5
+150,122.1
+200,123.3
+300,127.1
+400,129.8
+500,132.0
+600,133.7
+700,135.2
+800,136.5
+900,137.7
+1000,138.7

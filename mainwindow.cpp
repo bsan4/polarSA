@@ -877,7 +877,29 @@ void MainWindow::removeImport(int index)
 
 QString MainWindow::unitKey() const
 {
+    // While a calibration file is loaded, the box shows its unit; the coarse unit chosen before is kept
+    if ( ui->cbUnit->currentData().toString() == "calibration" )
+    {
+        return ui->cbUnit->itemData(unitBeforeCalibration).toString();
+    }
     return ui->cbUnit->currentData().toString();
+}
+
+void MainWindow::setUnitKey(const QString &key)
+{
+    const int index = ui->cbUnit->findData(key);
+    if ( index < 0 )
+    {
+        return;
+    }
+    if ( ui->cbUnit->findData("calibration") >= 0 )
+    {
+        unitBeforeCalibration = index;  // applied when the calibration is cleared
+    }
+    else
+    {
+        ui->cbUnit->setCurrentIndex(index);
+    }
 }
 
 double MainWindow::unitOffsetDb() const
@@ -943,6 +965,30 @@ double MainWindow::correctionAt(double hz) const
 void MainWindow::updateLevelControls()
 {
     const bool cal = calibration.isValid();
+    {
+        // With a calibration file, the (disabled) box shows the calibration's unit
+        QSignalBlocker blocker(ui->cbUnit);
+        const int calIndex = ui->cbUnit->findData("calibration");
+        if ( cal )
+        {
+            const QString text = Corrections::displayUnit(calibration.unit) + " (calibration)";
+            if ( calIndex < 0 )
+            {
+                unitBeforeCalibration = ui->cbUnit->currentIndex();
+                ui->cbUnit->addItem(text, "calibration");
+            }
+            else
+            {
+                ui->cbUnit->setItemText(calIndex, text);
+            }
+            ui->cbUnit->setCurrentIndex(ui->cbUnit->findData("calibration"));
+        }
+        else if ( calIndex >= 0 )
+        {
+            ui->cbUnit->removeItem(calIndex);
+            ui->cbUnit->setCurrentIndex(qMax(0, unitBeforeCalibration));
+        }
+    }
     ui->cbUnit->setEnabled(!cal);
     ui->cbUnit->setToolTip( cal ? "Set by the calibration file " + calibration.name + " ("
                                   + Corrections::displayUnit(calibration.unit) + ")"
@@ -1222,6 +1268,26 @@ void MainWindow::updateCorrectionLabels()
     }
 }
 
+QString MainWindow::resolveConfigFile(const QString &configPath, const QString &file, const QString &shippedSub) const
+{
+    // Relative to the config file; else, by file name, in the folder shipped with the application
+    if ( file.isEmpty() )
+    {
+        return file;
+    }
+    QString resolved = QDir::isAbsolutePath(file) ? file : QFileInfo(configPath).absoluteDir().absoluteFilePath(file);
+    if ( !QFileInfo::exists(resolved) )
+    {
+        const QString shipped = shippedDir(shippedSub);
+        const QString candidate = shipped.isEmpty() ? QString() : QDir(shipped).filePath(QFileInfo(file).fileName());
+        if ( !candidate.isEmpty() && QFileInfo::exists(candidate) )
+        {
+            resolved = candidate;
+        }
+    }
+    return QDir::cleanPath(resolved);
+}
+
 QString MainWindow::shippedDir(const QString &sub) const
 {
     // limits/ and calibration/ are shipped next to the executable; in development, use the source tree
@@ -1438,8 +1504,10 @@ bool MainWindow::writeConfigFile(const QString &path, QString *error)
     corrections["ext_gain_dB"] = ui->sbExtGain->value();
     corrections["unit"] = unitKey();
     corrections["antenna_factor_dB_m"] = ui->sbAntennaFactor->value();
-    corrections["calibration_file"] = calibration.isValid() ? calibration.path : QString();
-    corrections["limits_file"] = limits.isEmpty() ? QString() : limits.path;
+    // Paths relative to the config file, so a config and its files can be moved or shared together
+    const QDir configDir = QFileInfo(path).absoluteDir();
+    corrections["calibration_file"] = calibration.isValid() ? configDir.relativeFilePath(calibration.path) : QString();
+    corrections["limits_file"] = limits.isEmpty() ? QString() : configDir.relativeFilePath(limits.path);
 
     QJsonObject notes;
     QSettings settings;
@@ -1552,7 +1620,7 @@ bool MainWindow::readConfigFile(const QString &path, QStringList *warnings, QStr
             int index = ui->cbUnit->findData(corr["unit"].toString());
             if ( index >= 0 )
             {
-                ui->cbUnit->setCurrentIndex(index);
+                setUnitKey(corr["unit"].toString());
             }
             else
             {
@@ -1560,7 +1628,7 @@ bool MainWindow::readConfigFile(const QString &path, QStringList *warnings, QStr
             }
         }
 
-        QString calPath = corr["calibration_file"].toString();
+        QString calPath = resolveConfigFile(path, corr["calibration_file"].toString(), "calibration");
         QString err;
         if ( calPath.isEmpty() )
         {
@@ -1571,7 +1639,7 @@ bool MainWindow::readConfigFile(const QString &path, QStringList *warnings, QStr
             warnings->append("calibration " + QDir::toNativeSeparators(calPath) + ": " + err);
         }
 
-        QString limPath = corr["limits_file"].toString();
+        QString limPath = resolveConfigFile(path, corr["limits_file"].toString(), "limits");
         if ( limPath.isEmpty() )
         {
             clearLimits();

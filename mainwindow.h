@@ -60,6 +60,7 @@ private:
     QStringList levelsMetadata() const;
     static void restoreTinySALevels(Measurement &m);
     QString unitKey() const;
+    void setUnitKey(const QString &key);
     double unitOffsetDb() const;
     QString levelDescription() const;
     void updateLevelControls();
@@ -82,6 +83,7 @@ private:
     void updateUnits();
     void updateCorrectionLabels();
     QString shippedDir(const QString &sub) const;
+    QString resolveConfigFile(const QString &configPath, const QString &file, const QString &shippedSub) const;
     bool applyCalibrationFile(const QString &path, QString *error);
     bool applyLimitsFile(const QString &path, QString *error);
     Q_SLOT void loadCalibrationFile();
@@ -124,6 +126,7 @@ private:
     PowerSpectrum lastSpectrum;             // last sweep shown in the Spectrum tab (dBm, external gain removed)
 
     CalibrationTable calibration;           // setup calibration (display only, data stay in dBm)
+    int unitBeforeCalibration = 0;          // coarse unit index to restore when the calibration is cleared
     LimitSet limits;                        // EMC limits
 
     // ui->lwImports: row 0 is the live capture, row i+1 is importedMeasurements[i]

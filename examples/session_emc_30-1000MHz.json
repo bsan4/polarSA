@@ -1,0 +1,35 @@
+{
+    "app_version": "Beta 1.0.0",
+    "corrections": {
+        "antenna_factor_dB_m": 0,
+        "calibration_file": "calibration_example_3m.csv",
+        "ext_gain_dB": 0,
+        "limits_file": "../limits/EN55032_ClassB_3m.csv",
+        "unit": "dBm"
+    },
+    "display": {
+        "normalized": false
+    },
+    "notes": {
+        "antenna": "Broadband antenna, 3 m, horizontal",
+        "comment": "",
+        "dut": "Sensor board rev B",
+        "matching": "",
+        "operator": "Quantor Innovation",
+        "polarization": "Horizontal"
+    },
+    "polarSA_config": 1,
+    "rotator": {
+        "end_deg": 360,
+        "start_deg": 0,
+        "step_deg": 15
+    },
+    "saved": "2026-10-29T06:53:48",
+    "spectrum_analyzer": {
+        "attenuation_dB": 0,
+        "center_MHz": 515,
+        "lna": true,
+        "rbw": "850kHz",
+        "span_MHz": 970
+    }
+}
