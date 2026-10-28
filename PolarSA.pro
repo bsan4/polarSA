@@ -14,6 +14,7 @@ SOURCES += \
     main.cpp \
     lib/QCustomPlot/qcustomplot.cpp \
     src/Analysis/patternanalysis.cpp \
+    src/Corrections/corrections.cpp \
     src/ExportDialog/exportdialog.cpp \
     src/Report/pdfreport.cpp \
     src/TraceDialog/tracedialog.cpp \
@@ -27,6 +28,7 @@ HEADERS += \
     inc/defines.h \
     lib/QCustomPlot/qcustomplot.h \
     src/Analysis/patternanalysis.h \
+    src/Corrections/corrections.h \
     src/ExportDialog/exportdialog.h \
     src/Report/pdfreport.h \
     src/TraceDialog/tracedialog.h \
@@ -55,6 +57,16 @@ DISTFILES += \
 
 
 RC_ICONS = rsc/polarsa_notxt.ico
+
+# EMC limit files and calibration template shipped with the application:
+# the app looks for limits/ and calibration/ next to the executable, then in the source tree.
+DEFINES += POLARSA_SOURCE_DIR=\\\"$$PWD\\\"
+DISTFILES += $$files(limits/*) $$files(calibration/*)
+limits.files = $$files(limits/*)
+limits.path = $$target.path/limits
+calibration.files = $$files(calibration/*)
+calibration.path = $$target.path/calibration
+!isEmpty(target.path): INSTALLS += limits calibration
 
 RESOURCES += \
     rsc/rsc.qrc

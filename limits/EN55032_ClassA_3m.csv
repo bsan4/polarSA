@@ -1,0 +1,10 @@
+# name,EN 55032 / CISPR 32 Class A radiated, 3 m
+# unit,dBuV/m
+# description,Non-residential equipment. Below 1 GHz: 10 m limits + 10 dB (3 m alternative). Above 1 GHz: 3 m.
+limit,start_MHz,stop_MHz,start_level,stop_level
+Quasi-peak,30,230,50,50
+Quasi-peak,230,1000,57,57
+Average,1000,3000,56,56
+Average,3000,6000,60,60
+Peak,1000,3000,76,76
+Peak,3000,6000,80,80

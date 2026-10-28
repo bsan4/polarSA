@@ -25,6 +25,10 @@ public:
     // An empty pattern in the list is simply not drawn.
     void setOverlayPatterns(const QList<RadiationPattern> &patterns, const QList<QColor> &colors);
 
+    // EMC limits at the displayed frequency: one dashed circle per level
+    void setLimitCircles(const QList<double> &levels, const QList<QColor> &colors);
+    void setUnit(const QString &unit);  // radial axis unit in absolute mode, e.g. "dBm" or "dBuV/m"
+
     void setLiveColor(const QColor &color);
     void setPrintTheme(bool on);    // light colors for PDF / print rendering
     void setNormalize(bool en);
@@ -41,6 +45,8 @@ private:
     QCPPolarAxisRadial  *mRadialAxis  = nullptr;
     QCPPolarGraph       *mGraph       = nullptr;
     QList<QCPPolarGraph*> mOverlayGraphs;
+    QList<QCPPolarGraph*> mLimitGraphs;
+    QString mUnit = "dBm";
 
     QColor mLiveColor;      // invalid = theme highlight color
     bool mPrintTheme = false;

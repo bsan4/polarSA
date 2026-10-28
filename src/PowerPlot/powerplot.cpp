@@ -1,6 +1,7 @@
 #include "powerplot.h"
 
 #include <algorithm>
+#include "src/Corrections/corrections.h"
 #include <cmath>
 
 PowerPlot::PowerPlot(QWidget *parent)
@@ -187,6 +188,43 @@ void PowerPlot::setOverlayPatterns(const QList<RadiationPattern> &patterns, cons
     replot();
 }
 
+void PowerPlot::setLimitCircles(const QList<double> &levels, const QList<QColor> &colors)
+{
+    if (!mAngularAxis || !mRadialAxis)
+        return;
+
+    while (mLimitGraphs.size() > levels.size())
+        mAngularAxis->removeGraph(mLimitGraphs.takeLast());
+    while (mLimitGraphs.size() < levels.size())
+    {
+        QCPPolarGraph *g = new QCPPolarGraph(mAngularAxis, mRadialAxis);
+        g->setLineStyle(QCPPolarGraph::lsLine);
+        g->setScatterStyle(QCPScatterStyle::ssNone);
+        g->setPeriodic(true);
+        g->setBrush(Qt::NoBrush);
+        mLimitGraphs.append(g);
+    }
+
+    QVector<double> keys;
+    for (int a = 0; a < 360; a += 2)
+        keys.push_back(a);
+    for (int i = 0; i < levels.size(); ++i)
+    {
+        mLimitGraphs[i]->setPen(QPen(i < colors.size() ? colors[i] : QColor(Qt::gray), 1.5, Qt::DashLine));
+        mLimitGraphs[i]->setData(keys, QVector<double>(keys.size(), levels[i]), true);
+    }
+
+    updateRadialRange();
+    replot();
+}
+
+void PowerPlot::setUnit(const QString &unit)
+{
+    mUnit = unit;
+    updateRadialRange();
+    replot();
+}
+
 void PowerPlot::fillGraph(QCPPolarGraph *graph, const RadiationPattern &pattern)
 {
     const int n = qMin(pattern.power.size(), pattern.angles.size());
@@ -222,7 +260,7 @@ void PowerPlot::updateRadialRange()
         return;
 
     // Range covering every non-empty trace (live + overlays)
-    QList<QCPPolarGraph*> graphs = mOverlayGraphs;
+    QList<QCPPolarGraph*> graphs = mOverlayGraphs + mLimitGraphs;
     if (mGraph)
         graphs.prepend(mGraph);
 
@@ -263,6 +301,7 @@ void PowerPlot::updateRadialRange()
         }
 
         mRadialAxis->setRange(lo - 30, hi);
-        mRadialAxis->setLabel("Power (dBm)");
+        const bool power = Corrections::sameUnit(mUnit, "dBm");
+        mRadialAxis->setLabel(QString(power ? "Power" : "Level") + " (" + Corrections::displayUnit(mUnit) + ")");
     }
 }

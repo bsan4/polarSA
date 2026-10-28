@@ -119,7 +119,21 @@ Changes are previewed live; Cancel restores the previous settings. Adjustments a
 
 ### Session Config Files
 
-**Session config → Save... / Load...** stores the settings (no measurement data) in a JSON file: spectrum analyzer (center, span, RBW, attenuation, LNA), rotator (start, end, step), display (normalized) and the notes used to pre-fill the export / report dialogs. The loaded config name is shown in the panel (`*` when settings were changed since), and is written in the CSV metadata and the PDF report.
+**Session config → Save... / Load...** stores the settings (no measurement data) in a JSON file: spectrum analyzer (center, span, RBW, attenuation, LNA), rotator (start, end, step), display (normalized) and the notes used to pre-fill the export / report dialogs. The loaded config name is shown in the panel (`*` when settings were changed since), and is written in the CSV metadata and the PDF report. Configs also store the external gain and the calibration / limits files in use.
+
+---
+
+### Corrections and EMC Limits
+
+The **Corrections & limits** group sets how levels are read:
+
+- **Ext. gain (dB)**: gain between the antenna and the tinySA (`+20` for a 20 dB preamplifier, `-6` for an attenuator or cable loss). It is removed from every new sweep and recorded in the capture metadata (`ext_gain_dB`). Remembered between sessions.
+- **Calibration** (optional): a setup calibration file, correction in dB vs frequency, typically `107 + antenna factor + cable loss` to read field strength in dBµV/m. Applied to every trace for display, analysis, limits and reports; exported CSV data stay in dBm (with ext. gain removed), so a measurement can be re-read later with another calibration. Without a calibration, levels are in dBm and the report / CSV metadata state `calibration: none`. Format and formula: [`calibration/README.md`](calibration/README.md), template in `calibration/`.
+- **Limits**: an EMC limits file with one or several limit lines (e.g. quasi-peak, average, peak), each made of straight segments that may be sloped. They are drawn as dashed lines (with a legend) on the Spectrum and Max Emissions graphs, and as dashed circles on the radiation pattern: the limit value at the selected frequency, interpolated on sloped segments. The Max Emissions title shows the worst margin of the visible traces, and the PDF report gets a limit-check table (worst margin per trace and per limit). Limits are only compared when their unit matches the levels' unit, i.e. with a calibration in dBµV/m for the shipped files.
+
+The `limits/` folder ships ready-to-use files for EN 55032 / CISPR 32 (Class A and B, 3 m and 10 m) and FCC Part 15.109 (Class A and B) / 15.209: see [`limits/README.md`](limits/README.md) for the list, the file format and how to write your own. They are for pre-compliance; check them against the edition of the standard that applies. The application looks for `limits/` and `calibration/` next to its executable (copy them there when deploying), then in the source tree.
+
+The **Max Emissions** graph shows the max hold (over all angles) of the live capture and of every visible import, in the trace colors.
 
 ---
 

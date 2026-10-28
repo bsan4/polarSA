@@ -56,6 +56,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect( ui->pbExportPdf, &QPushButton::clicked, this, &MainWindow::exportPdf );
     connect( ui->pbLoadConfig, &QPushButton::clicked, this, &MainWindow::loadConfig );
     connect( ui->pbSaveConfig, &QPushButton::clicked, this, &MainWindow::saveConfig );
+    connect( ui->pbLoadCalibration, &QToolButton::clicked, this, &MainWindow::loadCalibrationFile );
+    connect( ui->pbClearCalibration, &QToolButton::clicked, this, &MainWindow::clearCalibration );
+    connect( ui->pbLoadLimits, &QToolButton::clicked, this, &MainWindow::loadLimitsFile );
+    connect( ui->pbClearLimits, &QToolButton::clicked, this, &MainWindow::clearLimits );
     connect( ui->lwImports, &QListWidget::itemChanged, this, [this](QListWidgetItem *item){
         int row = ui->lwImports->row(item);
         bool checked = (item->checkState() == Qt::Checked);
@@ -68,6 +72,7 @@ MainWindow::MainWindow(QWidget *parent)
             importedMeasurements[row - 1].visible = checked;
         }
         updateRadiationPattern();
+        updateSpectrumPlots();
     });
     connect( ui->lwImports, &QListWidget::itemDoubleClicked, this, &MainWindow::openTraceDialog );
 
@@ -129,6 +134,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect( ui->sbRotatorEnd, &QSpinBox::valueChanged, this, markModified );
     connect( ui->sbRotatorStep, &QSpinBox::valueChanged, this, markModified );
 
+    // External gain (preamp / attenuator between the antenna and the tinySA), remembered between sessions
+    ui->sbExtGain->setValue(settings.value("corrections/extGainDb", 0.0).toDouble());
+    connect( ui->sbExtGain, &QDoubleSpinBox::valueChanged, this, [this](double db) {
+        QSettings().setValue("corrections/extGainDb", db);
+        markConfigModified();
+    });
+
     // Normalized display, remembered between sessions
     ui->cbNormalize->setChecked(settings.value("display/normalized", false).toBool());
     ui->powerPlot->setNormalize(ui->cbNormalize->isChecked());
@@ -141,6 +153,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     setCaptureRunning(false);
     updateConfigLabel();
+    updateUnits();
 }
 
 MainWindow::~MainWindow()
@@ -245,6 +258,14 @@ PowerSpectrum MainWindow::captureSpectrum()
         QApplication::processEvents();
         ps = tinySA.capture();
     }
+
+    // Levels referred to the antenna side of the external gain (preamp +, attenuator / cable -).
+    // Done here rather than with the tinySA's own "ext gain" setting, which stays at 0.
+    const float extGain = static_cast<float>(ui->sbExtGain->value());
+    for( float &p : ps.power )
+    {
+        p -= extGain;
+    }
     return ps;
 }
 
@@ -259,7 +280,7 @@ void MainWindow::triggerSingleCapture()
     PowerSpectrum ps = captureSpectrum();
     if ( !ps.freq.isEmpty() )
     {
-        ui->spectrumPlot->setPowerSpectrum(ps);
+        showSpectrum(ps);
     }
     endCapture( stopCapture ? "Stopped." : "Done." );
 }
@@ -282,7 +303,7 @@ void MainWindow::triggerLoopSingleCapture()
         PowerSpectrum ps = captureSpectrum();
         if ( !ps.freq.isEmpty() )
         {
-            ui->spectrumPlot->setPowerSpectrum(ps);
+            showSpectrum(ps);
             count++;
             ui->statusbar->showMessage("Loop single: sweep " + QString::number(count) + " (Stop to end)");
         }
@@ -357,7 +378,6 @@ bool MainWindow::runSequence(bool reverse, const QString &label, int pass)
         std::reverse(angles.begin(), angles.end());
     }
 
-    PowerSpectrum maxPs;
     powerSpectra.clear();
     captureAngles.clear();
 
@@ -368,6 +388,8 @@ bool MainWindow::runSequence(bool reverse, const QString &label, int pass)
         "rbw," + ui->cbRBW->currentText(),
         "attenuation_dB," + QString::number(ui->sbSAAtt->value()),
         "lna," + QString(ui->sbSALNA->isChecked() ? "on" : "off"),
+        "ext_gain_dB," + QString::number(ui->sbExtGain->value(), 'f', 1),
+        "data_unit,dBm (analyzer input level minus external gain)",
         "angle_start_deg," + QString::number(ui->sbRotatorStart->value()),
         "angle_end_deg," + QString::number(ui->sbRotatorEnd->value()),
         "angle_step_deg," + QString::number(ui->sbRotatorStep->value())
@@ -392,7 +414,7 @@ bool MainWindow::runSequence(bool reverse, const QString &label, int pass)
         PowerSpectrum ps = captureSpectrum();
         if (ps.power.length() > 0)
         {
-            ui->spectrumPlot->setPowerSpectrum(ps);
+            showSpectrum(ps);
             powerSpectra.append(ps);
             captureAngles.append(static_cast<float>(a));
             i++;
@@ -407,15 +429,7 @@ bool MainWindow::runSequence(bool reverse, const QString &label, int pass)
                 }
             }
             updateRadiationPattern();
-            if ( maxPs.power.isEmpty() ) maxPs = ps;
-            for( int k = 0; k < ps.power.count(); k++ )
-            {
-                if ( maxPs.power.at(k) < ps.power.at(k) )
-                {
-                    maxPs.power[k] = ps.power.at(k);
-                }
-            }
-            ui->maxSpectrumPlot->setPowerSpectrum(maxPs);
+            updateSpectrumPlots();
         }
         QApplication::processEvents();
     }
@@ -473,6 +487,8 @@ void MainWindow::updateRadiationPattern()
     {
         ui->powerPlot->setRadiationPattern(RadiationPattern());
         ui->powerPlot->setOverlayPatterns({}, {});
+        ui->powerPlot->setLimitCircles({}, {});
+        ui->lbRPLimits->setText(QString());
         ui->lbRPMax->setText("-");
         ui->lbRPMin->setText("-");
         return;
@@ -488,8 +504,8 @@ void MainWindow::updateRadiationPattern()
     PatternMetrics lm = PatternAnalysis::compute(rp);
     if ( lm.valid )
     {
-        ui->lbRPMax->setText( QString::number(lm.maxDb, 'f', 1) + " dBm @ " + QString::number(lm.maxAngleDeg, 'f', 0) + QChar(0x00B0) );
-        ui->lbRPMin->setText( QString::number(lm.minDb, 'f', 1) + " dBm @ " + QString::number(lm.minAngleDeg, 'f', 0) + QChar(0x00B0) );
+        ui->lbRPMax->setText( QString::number(lm.maxDb, 'f', 1) + " " + Corrections::displayUnit(dataUnit()) + " @ " + QString::number(lm.maxAngleDeg, 'f', 0) + QChar(0x00B0) );
+        ui->lbRPMin->setText( QString::number(lm.minDb, 'f', 1) + " " + Corrections::displayUnit(dataUnit()) + " @ " + QString::number(lm.minAngleDeg, 'f', 0) + QChar(0x00B0) );
     }
     else
     {
@@ -507,6 +523,27 @@ void MainWindow::updateRadiationPattern()
         colors.append(m.color);
     }
     ui->powerPlot->setOverlayPatterns(overlays, colors);
+
+    // EMC limits at this frequency: one circle per limit line (interpolated on sloped segments)
+    QList<double> limitLevels;
+    QList<QColor> limitColors;
+    QStringList limitTexts;
+    if ( limitsComparable() && !ui->cbNormalize->isChecked() )
+    {
+        for( const LimitLine &line : limits.lines )
+        {
+            double level;
+            if ( line.valueAt(freqHz, &level) )
+            {
+                limitLevels.append(level);
+                limitColors.append(line.color);
+                limitTexts.append(line.name + " " + QString::number(level, 'f', 1));
+            }
+        }
+    }
+    ui->powerPlot->setLimitCircles(limitLevels, limitColors);
+    ui->lbRPLimits->setText( limitTexts.isEmpty() ? QString()
+                             : "Limit: " + limitTexts.join(", ") + " " + Corrections::displayUnit(dataUnit()) );
 }
 
 void MainWindow::updateFrequencyRange()
@@ -624,7 +661,7 @@ void MainWindow::goToPeakFrequency()
             const PowerSpectrum &ps = m.spectra.at(s);
             for( int i = 0; i < ps.power.length() && i < ps.freq.length(); i++ )
             {
-                float p = ps.power.at(i) + static_cast<float>(m.gainOffsetDb);
+                float p = ps.power.at(i) + static_cast<float>(m.gainOffsetDb + correctionAt(ps.freq.at(i)));
                 if ( !found || p > peakPower )
                 {
                     found = true;
@@ -654,7 +691,7 @@ void MainWindow::goToPeakFrequency()
         return;
     }
     setSelectedFrequency(peakFreq);
-    ui->statusbar->showMessage("Peak: " + QString::number(peakPower, 'f', 1) + " dBm at "
+    ui->statusbar->showMessage("Peak: " + QString::number(peakPower, 'f', 1) + " " + Corrections::displayUnit(dataUnit()) + " at "
                                + QString::number(peakFreq * 1e-6, 'f', 3) + " MHz, "
                                + QString::number(peakAngle) + QChar(0x00B0) + " (" + peakTrace + ")");
 }
@@ -705,10 +742,10 @@ Measurement MainWindow::liveMeasurement() const
     return m;
 }
 
-RadiationPattern MainWindow::tracePattern(const Measurement &m, double freqHz)
+RadiationPattern MainWindow::tracePattern(const Measurement &m, double freqHz) const
 {
     return PatternAnalysis::adjusted(PatternAnalysis::patternAt(m.spectra, m.angles, freqHz),
-                                     m.angleOffsetDeg, m.gainOffsetDb);
+                                     m.angleOffsetDeg, m.gainOffsetDb + correctionAt(freqHz));
 }
 
 void MainWindow::openTraceDialog(QListWidgetItem *item)
@@ -735,7 +772,7 @@ void MainWindow::openTraceDialog(QListWidgetItem *item)
         reference = PatternAnalysis::compute(tracePattern(liveMeasurement(), freqHz));
     }
 
-    TraceDialog dialog(trace, isLive, freqHz, reference, this);
+    TraceDialog dialog(trace, isLive, freqHz, reference, correctionAt(freqHz), dataUnit(), this);
     connect( &dialog, &TraceDialog::previewChanged, this, [this, row](double angle, double gain, const QColor &color) {
         applyTraceSettings(row, angle, gain, color);
     });
@@ -779,6 +816,7 @@ void MainWindow::applyTraceSettings(int row, double angleOffsetDeg, double gainO
         ui->powerPlot->setLiveColor(color);
     }
     updateRadiationPattern();
+    updateSpectrumPlots();
 }
 
 void MainWindow::removeImport(int index)
@@ -791,6 +829,327 @@ void MainWindow::removeImport(int index)
     delete ui->lwImports->takeItem(index + 1);
     updateFrequencyRange();
     updateRadiationPattern();
+    updateSpectrumPlots();
+}
+
+QString MainWindow::dataUnit() const
+{
+    return calibration.isValid() ? calibration.unit : QString("dBm");
+}
+
+double MainWindow::correctionAt(double hz) const
+{
+    return calibration.isValid() ? calibration.at(hz) : 0.0;
+}
+
+bool MainWindow::limitsComparable() const
+{
+    return !limits.isEmpty() && Corrections::sameUnit(limits.unit, dataUnit());
+}
+
+PowerSpectrum MainWindow::corrected(const PowerSpectrum &ps, double gainDb) const
+{
+    PowerSpectrum out = ps;
+    for( int i = 0; i < out.power.length() && i < out.freq.length(); i++ )
+    {
+        out.power[i] += static_cast<float>(gainDb + correctionAt(out.freq.at(i)));
+    }
+    return out;
+}
+
+PowerSpectrum MainWindow::maxHold(const Measurement &m) const
+{
+    // Max over all angles, then the trace's gain offset and the setup calibration
+    PowerSpectrum maxPs;
+    for( const PowerSpectrum &ps : m.spectra )
+    {
+        if ( maxPs.power.isEmpty() )
+        {
+            maxPs = ps;
+            continue;
+        }
+        for( int k = 0; k < ps.power.length() && k < maxPs.power.length(); k++ )
+        {
+            maxPs.power[k] = qMax(maxPs.power.at(k), ps.power.at(k));
+        }
+    }
+    return corrected(maxPs, m.gainOffsetDb);
+}
+
+void MainWindow::showSpectrum(const PowerSpectrum &ps)
+{
+    lastSpectrum = ps;
+    ui->spectrumPlot->setPowerSpectrum(corrected(ps, 0));
+}
+
+void MainWindow::updateSpectrumPlots()
+{
+    // Spectrum tab: last sweep
+    if ( !lastSpectrum.freq.isEmpty() )
+    {
+        ui->spectrumPlot->setPowerSpectrum(corrected(lastSpectrum, 0));
+    }
+
+    // Max Emissions: max hold of the live capture and of every visible import
+    ui->maxSpectrumPlot->setTraceColor(liveTrace.color);
+    ui->maxSpectrumPlot->setPowerSpectrum( liveTrace.visible && !powerSpectra.isEmpty() ? maxHold(liveMeasurement()) : PowerSpectrum() );
+    QList<PowerSpectrum> overlays;
+    QList<QColor> colors;
+    for( const Measurement &m : importedMeasurements )
+    {
+        overlays.append( m.visible ? maxHold(m) : PowerSpectrum() );
+        colors.append(m.color);
+    }
+    ui->maxSpectrumPlot->setOverlaySpectra(overlays, colors);
+
+    // Worst margin to the limits in the group title
+    QString title = "Max Emissions";
+    if ( limitsComparable() )
+    {
+        const LimitCheck *worst = nullptr;
+        const QList<LimitCheck> checks = limitChecks();
+        for( const LimitCheck &c : checks )
+        {
+            if ( c.covered && (!worst || c.marginDb < worst->marginDb) )
+            {
+                worst = &c;
+            }
+        }
+        if ( worst )
+        {
+            title += QString("  %1  worst margin %2 dB to %3 at %4 MHz (%5)")
+                         .arg(QChar(0x2014))
+                         .arg((worst->marginDb >= 0 ? "+" : "") + QString::number(worst->marginDb, 'f', 1))
+                         .arg(worst->limit)
+                         .arg(QString::number(worst->freqHz * 1e-6, 'f', 3))
+                         .arg(worst->trace);
+        }
+    }
+    else if ( !limits.isEmpty() )
+    {
+        title += QString("  %1  limits in %2, levels in %3: load a calibration to compare")
+                     .arg(QChar(0x2014))
+                     .arg(Corrections::displayUnit(limits.unit))
+                     .arg(Corrections::displayUnit(dataUnit()));
+    }
+    ui->groupBox_5->setTitle(title);
+}
+
+QList<LimitCheck> MainWindow::limitChecks() const
+{
+    QList<LimitCheck> checks;
+    QList<Measurement> traces;
+    if ( !powerSpectra.isEmpty() && liveTrace.visible )
+    {
+        traces.append(liveMeasurement());
+    }
+    for( const Measurement &m : importedMeasurements )
+    {
+        if ( m.visible )
+        {
+            traces.append(m);
+        }
+    }
+
+    for( const Measurement &m : traces )
+    {
+        const PowerSpectrum mh = maxHold(m);
+        for( const LimitLine &line : limits.lines )
+        {
+            LimitCheck c;
+            c.trace = m.name;
+            c.traceColor = m.color;
+            c.limit = line.name;
+            c.limitColor = line.color;
+            for( int i = 0; i < mh.power.length() && i < mh.freq.length(); i++ )
+            {
+                double limitDb;
+                if ( !line.valueAt(mh.freq.at(i), &limitDb) )
+                {
+                    continue;
+                }
+                double margin = limitDb - mh.power.at(i);
+                if ( !c.covered || margin < c.marginDb )
+                {
+                    c.covered = true;
+                    c.marginDb = margin;
+                    c.freqHz = mh.freq.at(i);
+                    c.levelDb = mh.power.at(i);
+                    c.limitDb = limitDb;
+                }
+            }
+            checks.append(c);
+        }
+    }
+    return checks;
+}
+
+void MainWindow::updateUnits()
+{
+    const QString unit = dataUnit();
+    ui->powerPlot->setUnit(unit);
+    ui->spectrumPlot->setUnit(unit);
+    ui->maxSpectrumPlot->setUnit(unit);
+    ui->spectrumPlot->setLimits(limits, limitsComparable());
+    ui->maxSpectrumPlot->setLimits(limits, limitsComparable());
+    updateCorrectionLabels();
+    updateRadiationPattern();
+    updateSpectrumPlots();
+}
+
+void MainWindow::updateCorrectionLabels()
+{
+    if ( calibration.isValid() )
+    {
+        ui->lbCalibration->setText(calibration.name);
+        ui->lbCalibration->setToolTip( QDir::toNativeSeparators(calibration.path)
+                                       + "\nUnit: " + Corrections::displayUnit(calibration.unit)
+                                       + "\nRange: " + QString::number(calibration.freqHz.first() * 1e-6, 'f', 3) + " - "
+                                       + QString::number(calibration.freqHz.last() * 1e-6, 'f', 3) + " MHz ("
+                                       + QString::number(calibration.freqHz.length()) + " points, edge values used outside)"
+                                       + (calibration.description.isEmpty() ? QString() : "\n" + calibration.description) );
+    }
+    else
+    {
+        ui->lbCalibration->setText("none");
+        ui->lbCalibration->setToolTip("No setup calibration: levels are in dBm at the analyzer input (external gain removed)");
+    }
+
+    if ( !limits.isEmpty() )
+    {
+        QStringList names;
+        for( const LimitLine &line : limits.lines )
+        {
+            names << line.name;
+        }
+        ui->lbLimits->setText(limits.name);
+        ui->lbLimits->setToolTip( limits.name + "\n" + QDir::toNativeSeparators(limits.path)
+                                  + "\nUnit: " + Corrections::displayUnit(limits.unit) + "\nLimits: " + names.join(", ")
+                                  + (limits.description.isEmpty() ? QString() : "\n" + limits.description)
+                                  + (limitsComparable() ? QString()
+                                     : "\n\nNot compared: the levels are in " + Corrections::displayUnit(dataUnit())
+                                       + ". Load a setup calibration in " + Corrections::displayUnit(limits.unit) + ".") );
+        ui->lbLimits->setStyleSheet( limitsComparable() ? QString() : QString("color: #d08000;") );
+    }
+    else
+    {
+        ui->lbLimits->setText("none");
+        ui->lbLimits->setToolTip(QString());
+        ui->lbLimits->setStyleSheet(QString());
+    }
+}
+
+QString MainWindow::shippedDir(const QString &sub) const
+{
+    // limits/ and calibration/ are shipped next to the executable; in development, use the source tree
+    QDir app(QCoreApplication::applicationDirPath());
+    QStringList candidates = { app.filePath(sub), app.filePath("../" + sub) };
+#ifdef POLARSA_SOURCE_DIR
+    candidates << QString(POLARSA_SOURCE_DIR) + "/" + sub;
+#endif
+    for( const QString &candidate : candidates )
+    {
+        if ( QDir(candidate).exists() )
+        {
+            return QDir(candidate).absolutePath();
+        }
+    }
+    return QString();
+}
+
+bool MainWindow::applyCalibrationFile(const QString &path, QString *error)
+{
+    CalibrationTable table;
+    if ( !Corrections::loadCalibration(path, table, error) )
+    {
+        return false;
+    }
+    calibration = table;
+    markConfigModified();
+    updateUnits();
+    return true;
+}
+
+bool MainWindow::applyLimitsFile(const QString &path, QString *error)
+{
+    LimitSet set;
+    if ( !Corrections::loadLimits(path, set, error) )
+    {
+        return false;
+    }
+    limits = set;
+    markConfigModified();
+    updateUnits();
+    return true;
+}
+
+void MainWindow::loadCalibrationFile()
+{
+    QString dir = QSettings().value("dirs/calibration").toString();
+    if ( dir.isEmpty() )
+    {
+        dir = shippedDir("calibration");
+    }
+    QString path = QFileDialog::getOpenFileName(this, "Load Setup Calibration", dir, "Calibration CSV (*.csv);;All files (*)");
+    if ( path.isEmpty() )
+    {
+        return;
+    }
+    rememberDir("calibration", path);
+    QString error;
+    if ( !applyCalibrationFile(path, &error) )
+    {
+        QMessageBox::warning(this, "Load Setup Calibration", QFileInfo(path).fileName() + ":\n" + error);
+        return;
+    }
+    ui->statusbar->showMessage("Calibration loaded: " + calibration.name + ", levels now in " + Corrections::displayUnit(dataUnit()));
+}
+
+void MainWindow::clearCalibration()
+{
+    if ( !calibration.isValid() )
+    {
+        return;
+    }
+    calibration = CalibrationTable();
+    markConfigModified();
+    updateUnits();
+}
+
+void MainWindow::loadLimitsFile()
+{
+    QString dir = QSettings().value("dirs/limits").toString();
+    if ( dir.isEmpty() )
+    {
+        dir = shippedDir("limits");
+    }
+    QString path = QFileDialog::getOpenFileName(this, "Load EMC Limits", dir, "Limits CSV (*.csv);;All files (*)");
+    if ( path.isEmpty() )
+    {
+        return;
+    }
+    rememberDir("limits", path);
+    QString error;
+    if ( !applyLimitsFile(path, &error) )
+    {
+        QMessageBox::warning(this, "Load EMC Limits", QFileInfo(path).fileName() + ":\n" + error);
+        return;
+    }
+    ui->statusbar->showMessage( limitsComparable()
+                                ? "Limits loaded: " + limits.name
+                                : "Limits loaded: " + limits.name + " (in " + Corrections::displayUnit(limits.unit)
+                                  + ", levels in " + Corrections::displayUnit(dataUnit()) + ": load a calibration to compare)" );
+}
+
+void MainWindow::clearLimits()
+{
+    if ( limits.isEmpty() )
+    {
+        return;
+    }
+    limits = LimitSet();
+    markConfigModified();
+    updateUnits();
 }
 
 QString MainWindow::lastDir(const QString &key) const
@@ -889,6 +1248,11 @@ bool MainWindow::writeConfigFile(const QString &path, QString *error)
     QJsonObject display;
     display["normalized"] = ui->cbNormalize->isChecked();
 
+    QJsonObject corrections;
+    corrections["ext_gain_dB"] = ui->sbExtGain->value();
+    corrections["calibration_file"] = calibration.isValid() ? calibration.path : QString();
+    corrections["limits_file"] = limits.isEmpty() ? QString() : limits.path;
+
     QJsonObject notes;
     QSettings settings;
     settings.beginGroup("export");
@@ -905,6 +1269,7 @@ bool MainWindow::writeConfigFile(const QString &path, QString *error)
     root["spectrum_analyzer"] = sa;
     root["rotator"] = rot;
     root["display"] = display;
+    root["corrections"] = corrections;
     root["notes"] = notes;
 
     QFile file(path);
@@ -988,6 +1353,34 @@ bool MainWindow::readConfigFile(const QString &path, QStringList *warnings, QStr
     QJsonObject display = root["display"].toObject();
     if ( display.contains("normalized") ) ui->cbNormalize->setChecked(display["normalized"].toBool());
 
+    // Corrections: external gain, calibration and limits files (empty name = none)
+    if ( root.contains("corrections") )
+    {
+        QJsonObject corr = root["corrections"].toObject();
+        if ( corr.contains("ext_gain_dB") ) ui->sbExtGain->setValue(corr["ext_gain_dB"].toDouble());
+
+        QString calPath = corr["calibration_file"].toString();
+        QString err;
+        if ( calPath.isEmpty() )
+        {
+            clearCalibration();
+        }
+        else if ( !applyCalibrationFile(calPath, &err) )
+        {
+            warnings->append("calibration " + QDir::toNativeSeparators(calPath) + ": " + err);
+        }
+
+        QString limPath = corr["limits_file"].toString();
+        if ( limPath.isEmpty() )
+        {
+            clearLimits();
+        }
+        else if ( !applyLimitsFile(limPath, &err) )
+        {
+            warnings->append("limits " + QDir::toNativeSeparators(limPath) + ": " + err);
+        }
+    }
+
     // Notes pre-fill the next export / report dialog
     if ( root.contains("notes") )
     {
@@ -1018,7 +1411,30 @@ ReportData MainWindow::buildReportData(const QStringList &notes) const
     data.notes = notes;
     data.captureSettings = powerSpectra.isEmpty() ? QStringList() : captureMetadata;
     data.polarPlot = ui->powerPlot;
-    data.maxPlot = powerSpectra.isEmpty() ? nullptr : ui->maxSpectrumPlot;
+    data.maxPlot = ui->maxSpectrumPlot;
+    data.unit = dataUnit();
+    if ( calibration.isValid() )
+    {
+        data.calibration = calibration.name + " (" + Corrections::displayUnit(calibration.unit)
+                           + (calibration.description.isEmpty() ? QString() : ", " + calibration.description) + ")";
+        if ( !calibration.covers(freqHz) )
+        {
+            data.calibration += " - the selected frequency is outside of its range, edge value used";
+        }
+    }
+    if ( !limits.isEmpty() )
+    {
+        data.limits = limits.name + " (" + QFileInfo(limits.path).fileName() + ", " + Corrections::displayUnit(limits.unit) + ")";
+        if ( limitsComparable() )
+        {
+            data.limitChecks = limitChecks();
+        }
+        else
+        {
+            data.limitsNote = "Limits are in " + Corrections::displayUnit(limits.unit) + " while the levels are in "
+                              + Corrections::displayUnit(dataUnit()) + ": no comparison. Load a setup calibration to compare.";
+        }
+    }
 
     // Visible traces: live capture first, then imports in list order
     QList<QPair<Measurement, bool>> traces; // (trace, isLive)
@@ -1128,6 +1544,9 @@ void MainWindow::exportData()
     {
         m.metadata.append("config," + configDisplayName());
     }
+    m.metadata.append( "calibration," + (calibration.isValid()
+                                          ? calibration.name + " (" + calibration.unit + ", display only: not applied to the data)"
+                                          : QString("none")) );
     m.metadata += captureMetadata;
     m.angles = captureAngles;
     m.spectra = powerSpectra;
@@ -1203,6 +1622,7 @@ void MainWindow::importData()
 
     updateFrequencyRange();
     updateRadiationPattern();
+    updateSpectrumPlots();
     ui->statusbar->showMessage("Imported " + QString::number(nbImported) + " file(s).");
 
     if ( !errors.isEmpty() )
@@ -1222,6 +1642,7 @@ void MainWindow::clearImports()
     ui->powerPlot->setOverlayPatterns({}, {});
     updateFrequencyRange();
     updateRadiationPattern();
+    updateSpectrumPlots();
 }
 
 /*

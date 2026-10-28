@@ -18,8 +18,10 @@ class TraceDialog : public QDialog
 public:
     // trace: settings + data of the trace. reference: metrics of the live capture to compare with
     // (invalid when there is none, or when the trace is the live capture itself).
+    // correctionDb: setup calibration at freqHz, added to every value; unit: unit of the corrected values.
     TraceDialog(const Measurement &trace, bool isLive, double freqHz,
-                const PatternMetrics &reference, QWidget *parent = nullptr);
+                const PatternMetrics &reference, double correctionDb = 0, const QString &unit = "dBm",
+                QWidget *parent = nullptr);
 
     double angleOffset() const;
     double gainOffset() const;
@@ -35,6 +37,8 @@ private:
 
     Measurement mTrace;
     double mFreqHz = 0;
+    double mCorrectionDb = 0;
+    QString mUnit;
     PatternMetrics mReference;
     RadiationPattern mRawPattern;   // pattern at mFreqHz, before adjustments
     QColor mColor;

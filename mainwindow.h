@@ -7,6 +7,7 @@
 #include "src/Rotator/rotator.h"
 #include "src/Analysis/patternanalysis.h"
 #include "src/Report/pdfreport.h"
+#include "src/Corrections/corrections.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -54,7 +55,24 @@ private:
     Q_SLOT void goToPeakFrequency();
     QColor nextImportColor();
     Measurement liveMeasurement() const;
-    static RadiationPattern tracePattern(const Measurement &m, double freqHz);
+    RadiationPattern tracePattern(const Measurement &m, double freqHz) const;
+    QString dataUnit() const;
+    double correctionAt(double hz) const;
+    bool limitsComparable() const;
+    PowerSpectrum corrected(const PowerSpectrum &ps, double gainDb) const;
+    PowerSpectrum maxHold(const Measurement &m) const;
+    void showSpectrum(const PowerSpectrum &ps);
+    void updateSpectrumPlots();
+    QList<LimitCheck> limitChecks() const;
+    void updateUnits();
+    void updateCorrectionLabels();
+    QString shippedDir(const QString &sub) const;
+    bool applyCalibrationFile(const QString &path, QString *error);
+    bool applyLimitsFile(const QString &path, QString *error);
+    Q_SLOT void loadCalibrationFile();
+    Q_SLOT void clearCalibration();
+    Q_SLOT void loadLimitsFile();
+    Q_SLOT void clearLimits();
     Q_SLOT void openTraceDialog(QListWidgetItem *item);
     void applyTraceSettings(int row, double angleOffsetDeg, double gainOffsetDb, const QColor &color);
     void removeImport(int index);
@@ -83,6 +101,10 @@ private:
     QVector<float> captureAngles;           // one per entry of powerSpectra
     QStringList captureMetadata;            // settings snapshot of the last sequence
     QVector<double> sliderFreqs;            // merged, sorted frequency grid of all traces (Hz)
+    PowerSpectrum lastSpectrum;             // last sweep shown in the Spectrum tab (dBm, external gain removed)
+
+    CalibrationTable calibration;           // setup calibration (display only, data stay in dBm)
+    LimitSet limits;                        // EMC limits
 
     // ui->lwImports: row 0 is the live capture, row i+1 is importedMeasurements[i]
     Measurement liveTrace;                   // live capture display settings (data: powerSpectra / captureAngles)
