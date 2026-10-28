@@ -300,6 +300,16 @@ bool PdfReport::write(const QString &path, const ReportData &data, QString *erro
     painter.setMode(QCPPainter::pmVectorized);
     painter.setRenderHint(QPainter::Antialiasing);
 
+    int nbEmbedded = 0;
+    for (const ReportTrace &t : data.traces)
+    {
+        if (!t.dataCsv.isEmpty())
+        {
+            writer.addFileAttachment(t.dataFileName, t.dataCsv, "text/csv");
+            nbEmbedded++;
+        }
+    }
+
     if (data.polarPlot) data.polarPlot->setPrintTheme(true);
     if (data.maxPlot) data.maxPlot->setPrintTheme(true);
 
@@ -311,6 +321,8 @@ bool PdfReport::write(const QString &path, const ReportData &data, QString *erro
     info << QPair<QString, QString>("Scale", data.normalized ? "normalized (each trace relative to its max)" : "absolute (dBm)");
     info << QPair<QString, QString>("Config file", data.configName.isEmpty() ? QString("(none)") : data.configName);
     info << QPair<QString, QString>("Traces", QString::number(data.traces.size()));
+    if (nbEmbedded > 0)
+        info << QPair<QString, QString>("Embedded data", QString::number(nbEmbedded) + " CSV file(s), importable in polarSA");
     for (const QString &line : data.notes)
     {
         QPair<QString, QString> kv = splitKeyValue(line);
@@ -371,6 +383,8 @@ bool PdfReport::write(const QString &path, const ReportData &data, QString *erro
         p.drawText(QRect(16, page.y(), page.width() - 16, 16), Qt::AlignLeft | Qt::AlignVCenter, t.name);
         page.advance(17);
         page.paragraph(t.source.isEmpty() ? QString("Live capture, not saved to a file") : t.source, 7.5, kMuted, 16);
+        if (!t.dataCsv.isEmpty())
+            page.paragraph("Data embedded in this PDF: " + t.dataFileName, 7.5, kMuted, 16);
         if (t.angleOffsetDeg != 0 || t.gainOffsetDb != 0)
             page.paragraph("Display adjustments: rotation " + degrees(t.angleOffsetDeg) + ", gain "
                            + (t.gainOffsetDb >= 0 ? "+" : "") + QString::number(t.gainOffsetDb, 'f', 1) + " dB", 8, Qt::black, 16);

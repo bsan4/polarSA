@@ -4,6 +4,7 @@
 #include <QDialog>
 #include <QStringList>
 
+class QCheckBox;
 class QLineEdit;
 class QComboBox;
 class QPlainTextEdit;
@@ -23,6 +24,10 @@ public:
     QStringList metadata() const;
     QString dutName() const;
 
+    // Adds the "embed trace data" check box (PDF report); state remembered like the fields
+    void addEmbedDataOption();
+    bool embedData() const;
+
 private:
     void saveFields() const;
 
@@ -32,6 +37,7 @@ private:
     QComboBox *mPolarization = nullptr;
     QLineEdit *mOperator = nullptr;
     QPlainTextEdit *mComment = nullptr;
+    QCheckBox *mEmbedData = nullptr;
 };
 
 #endif

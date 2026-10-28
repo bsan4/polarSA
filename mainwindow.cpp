@@ -20,6 +20,7 @@
 #include "src/ExportDialog/exportdialog.h"
 #include "src/TraceDialog/tracedialog.h"
 #include "src/Report/pdfreport.h"
+#include "src/Report/pdfattachments.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
@@ -1008,7 +1009,7 @@ bool MainWindow::readConfigFile(const QString &path, QStringList *warnings, QStr
     return true;
 }
 
-ReportData MainWindow::buildReportData(const QStringList &notes) const
+ReportData MainWindow::buildReportData(const QStringList &notes, bool embedData) const
 {
     ReportData data;
     double freqHz = selectedFrequency();
@@ -1033,6 +1034,7 @@ ReportData MainWindow::buildReportData(const QStringList &notes) const
             traces.append({m, false});
         }
     }
+    QSet<QString> usedNames; // embedded file names, lower case
     for( const auto &entry : traces )
     {
         const Measurement &m = entry.first;
@@ -1044,9 +1046,58 @@ ReportData MainWindow::buildReportData(const QStringList &notes) const
         t.gainOffsetDb = m.gainOffsetDb;
         t.metrics = PatternAnalysis::compute(tracePattern(m, freqHz));
         t.metadata = m.metadata;
+        if ( embedData )
+        {
+            embedTraceData(t, m, entry.second, notes, usedNames);
+        }
         data.traces.append(t);
     }
     return data;
+}
+
+// Fills t.dataCsv / t.dataFileName: the CSV Export Data would write for this trace
+// (notes and config for the live capture, display adjustments applied)
+void MainWindow::embedTraceData(ReportTrace &t, const Measurement &m, bool isLive,
+                                const QStringList &notes, QSet<QString> &usedNames) const
+{
+    Measurement csv = m;
+    QString name = m.name;
+    if ( isLive )
+    {
+        csv.metadata = notes;
+        if ( !currentConfigPath.isEmpty() )
+        {
+            csv.metadata.append("config," + configDisplayName());
+        }
+        csv.metadata += m.metadata;
+
+        // Named like an Export Data file: polarSA_<dut>_<capture date>.csv
+        QString dut, date;
+        for( const QString &line : csv.metadata )
+        {
+            if ( line.startsWith("dut,") && dut.isEmpty() ) dut = line.mid(4).trimmed();
+            if ( line.startsWith("date,") && date.isEmpty() ) date = line.mid(5).trimmed();
+        }
+        dut.replace(QRegularExpression("[^A-Za-z0-9_.-]+"), "_");
+        QDateTime captured = QDateTime::fromString(date, Qt::ISODate);
+        name = "polarSA_" + (dut.isEmpty() ? QString() : dut + "_")
+               + (captured.isValid() ? captured.toString("yyyyMMdd_HHmmss") : QString("live")) + ".csv";
+    }
+    applyAdjustments(csv);
+
+    if ( !name.endsWith(".csv", Qt::CaseInsensitive) )
+    {
+        name += ".csv";
+    }
+    QString base = name.left(name.length() - 4);
+    for( int n = 2; usedNames.contains(name.toLower()); n++ )
+    {
+        name = base + "_" + QString::number(n) + ".csv";
+    }
+    usedNames.insert(name.toLower());
+
+    t.dataFileName = name;
+    t.dataCsv = measurementCsv(csv);
 }
 
 void MainWindow::exportPdf()
@@ -1061,6 +1112,7 @@ void MainWindow::exportPdf()
     QString summary = "Report at " + QString::number(preview.freqHz * 1e-6, 'f', 3) + " MHz, "
                       + QString::number(preview.traces.length()) + " visible trace(s)";
     ExportDialog dialog(summary, this, "PDF Report - Notes", "Create PDF...");
+    dialog.addEmbedDataOption();
     if ( dialog.exec() != QDialog::Accepted )
     {
         return;
@@ -1078,7 +1130,7 @@ void MainWindow::exportPdf()
     }
     rememberDir("report", path);
 
-    ReportData data = buildReportData(dialog.metadata());
+    ReportData data = buildReportData(dialog.metadata(), dialog.embedData());
     QString error;
     if ( !PdfReport::write(path, data, &error) )
     {
@@ -1131,24 +1183,9 @@ void MainWindow::exportData()
     m.metadata += captureMetadata;
     m.angles = captureAngles;
     m.spectra = powerSpectra;
-
-    // The file holds what is displayed: rotation / gain adjustments of the live trace are applied
-    if ( liveTrace.angleOffsetDeg != 0 || liveTrace.gainOffsetDb != 0 )
-    {
-        for( float &a : m.angles )
-        {
-            a += static_cast<float>(liveTrace.angleOffsetDeg);
-        }
-        for( PowerSpectrum &ps : m.spectra )
-        {
-            for( float &p : ps.power )
-            {
-                p += static_cast<float>(liveTrace.gainOffsetDb);
-            }
-        }
-        m.metadata.append("applied_rotation_deg," + QString::number(liveTrace.angleOffsetDeg, 'f', 1));
-        m.metadata.append("applied_gain_offset_dB," + QString::number(liveTrace.gainOffsetDb, 'f', 1));
-    }
+    m.angleOffsetDeg = liveTrace.angleOffsetDeg;
+    m.gainOffsetDb = liveTrace.gainOffsetDb;
+    applyAdjustments(m);
 
     QString error;
     if ( !writeMeasurementCsv(path, m, &error) )
@@ -1162,7 +1199,8 @@ void MainWindow::exportData()
 void MainWindow::importData()
 {
     QStringList paths = QFileDialog::getOpenFileNames(this, "Import Data", lastDir("import"),
-                                                      "CSV files (*.csv);;All files (*)");
+                                                      "polarSA data (*.csv *.pdf);;CSV files (*.csv);;"
+                                                      "PDF reports with embedded data (*.pdf);;All files (*)");
     if ( paths.isEmpty() )
     {
         return;
@@ -1170,18 +1208,15 @@ void MainWindow::importData()
     rememberDir("import", paths.first());
 
     QStringList errors;
-    int nbImported = 0;
+    QList<Measurement> loaded;
     for( const QString &path : paths )
     {
-        Measurement m;
-        QString error;
-        if ( !readMeasurementCsv(path, m, &error) )
-        {
-            errors.append(QFileInfo(path).fileName() + ": " + error);
-            continue;
-        }
-        m.name = QFileInfo(path).fileName();
-        m.sourcePath = QFileInfo(path).absoluteFilePath();
+        loaded += readMeasurementFile(path, &errors);
+    }
+
+    int nbImported = 0;
+    for( Measurement &m : loaded )
+    {
         m.color = nextImportColor();
         importedMeasurements.append(m);
         nbImported++;
@@ -1189,7 +1224,7 @@ void MainWindow::importData()
         const QVector<float> &freq = m.spectra.first().freq;
         QListWidgetItem *item = new QListWidgetItem(colorSwatch(m.color), m.name);
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-        item->setToolTip(QFileInfo(path).absoluteFilePath() + "\n"
+        item->setToolTip(m.sourcePath + "\n"
                          + QString::number(1e-6 * freq.first(), 'f', 3) + " - "
                          + QString::number(1e-6 * freq.last(), 'f', 3) + " MHz, "
                          + QString::number(freq.length()) + " points, "
@@ -1203,7 +1238,7 @@ void MainWindow::importData()
 
     updateFrequencyRange();
     updateRadiationPattern();
-    ui->statusbar->showMessage("Imported " + QString::number(nbImported) + " file(s).");
+    ui->statusbar->showMessage("Imported " + QString::number(nbImported) + " trace(s).");
 
     if ( !errors.isEmpty() )
     {
@@ -1232,7 +1267,32 @@ void MainWindow::clearImports()
  *   0,p0,p1,...                    <- one row per angle: power in dBm
  *   10,p0,p1,...
  * Import also accepts ';' or tab separators (',' decimal mark is then allowed).
+ * PDF reports can embed the same CSV, one attachment per trace.
  */
+void MainWindow::applyAdjustments(Measurement &m)
+{
+    // The file holds what is displayed: rotation / gain adjustments of the trace are applied
+    if ( m.angleOffsetDeg == 0 && m.gainOffsetDb == 0 )
+    {
+        return;
+    }
+    for( float &a : m.angles )
+    {
+        a += static_cast<float>(m.angleOffsetDeg);
+    }
+    for( PowerSpectrum &ps : m.spectra )
+    {
+        for( float &p : ps.power )
+        {
+            p += static_cast<float>(m.gainOffsetDb);
+        }
+    }
+    m.metadata.append("applied_rotation_deg," + QString::number(m.angleOffsetDeg, 'f', 1));
+    m.metadata.append("applied_gain_offset_dB," + QString::number(m.gainOffsetDb, 'f', 1));
+    m.angleOffsetDeg = 0;
+    m.gainOffsetDb = 0;
+}
+
 bool MainWindow::writeMeasurementCsv(const QString &path, const Measurement &m, QString *error)
 {
     QFile file(path);
@@ -1241,8 +1301,19 @@ bool MainWindow::writeMeasurementCsv(const QString &path, const Measurement &m, 
         *error = file.errorString();
         return false;
     }
+    QByteArray csv = measurementCsv(m);
+    if ( file.write(csv) != csv.size() )
+    {
+        *error = file.errorString();
+        return false;
+    }
+    return true;
+}
 
-    QTextStream out(&file);
+QByteArray MainWindow::measurementCsv(const Measurement &m)
+{
+    QByteArray csv;
+    QTextStream out(&csv);
     out << "# polarSA measurement export\n";
     for( const QString &line : m.metadata )
     {
@@ -1267,24 +1338,62 @@ bool MainWindow::writeMeasurementCsv(const QString &path, const Measurement &m, 
     }
 
     out.flush();
-    if ( out.status() != QTextStream::Ok )
-    {
-        *error = "write error";
-        return false;
-    }
-    return true;
+    return csv;
 }
 
-bool MainWindow::readMeasurementCsv(const QString &path, Measurement &m, QString *error)
+QList<Measurement> MainWindow::readMeasurementFile(const QString &path, QStringList *errors)
 {
+    QFileInfo info(path);
+    QList<Measurement> list;
+
+    if ( info.suffix().compare("pdf", Qt::CaseInsensitive) == 0 )
+    {
+        // PDF report: one trace per embedded CSV
+        QList<PdfAttachment> attachments;
+        QString error;
+        if ( !PdfAttachments::read(path, &attachments, &error) )
+        {
+            errors->append(info.fileName() + ": " + error);
+            return list;
+        }
+        for( const PdfAttachment &a : attachments )
+        {
+            Measurement m;
+            QTextStream in(a.data);
+            if ( !parseMeasurementCsv(in, m, &error) )
+            {
+                errors->append(info.fileName() + " / " + a.name + ": " + error);
+                continue;
+            }
+            m.name = a.name;
+            m.sourcePath = QDir::toNativeSeparators(info.absoluteFilePath()) + " (embedded " + a.name + ")";
+            list.append(m);
+        }
+        return list;
+    }
+
     QFile file(path);
     if ( !file.open(QIODevice::ReadOnly | QIODevice::Text) )
     {
-        *error = file.errorString();
-        return false;
+        errors->append(info.fileName() + ": " + file.errorString());
+        return list;
     }
-
+    Measurement m;
+    QString error;
     QTextStream in(&file);
+    if ( !parseMeasurementCsv(in, m, &error) )
+    {
+        errors->append(info.fileName() + ": " + error);
+        return list;
+    }
+    m.name = info.fileName();
+    m.sourcePath = info.absoluteFilePath();
+    list.append(m);
+    return list;
+}
+
+bool MainWindow::parseMeasurementCsv(QTextStream &in, Measurement &m, QString *error)
+{
     QVector<float> freq;
     QChar sep;
     int lineNo = 0;

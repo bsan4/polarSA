@@ -15,6 +15,7 @@ SOURCES += \
     lib/QCustomPlot/qcustomplot.cpp \
     src/Analysis/patternanalysis.cpp \
     src/ExportDialog/exportdialog.cpp \
+    src/Report/pdfattachments.cpp \
     src/Report/pdfreport.cpp \
     src/TraceDialog/tracedialog.cpp \
     src/PowerPlot/powerplot.cpp \
@@ -28,6 +29,7 @@ HEADERS += \
     lib/QCustomPlot/qcustomplot.h \
     src/Analysis/patternanalysis.h \
     src/ExportDialog/exportdialog.h \
+    src/Report/pdfattachments.h \
     src/Report/pdfreport.h \
     src/TraceDialog/tracedialog.h \
     src/PowerPlot/powerplot.h \

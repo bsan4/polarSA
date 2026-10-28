@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 #include <QListWidgetItem>
+#include <QSet>
+#include <QTextStream>
 #include "src/tinySA/tinySA.h"
 #include "src/Rotator/rotator.h"
 #include "src/Analysis/patternanalysis.h"
@@ -59,7 +61,9 @@ private:
     void applyTraceSettings(int row, double angleOffsetDeg, double gainOffsetDb, const QColor &color);
     void removeImport(int index);
     Q_SLOT void exportPdf();
-    ReportData buildReportData(const QStringList &notes) const;
+    ReportData buildReportData(const QStringList &notes, bool embedData = false) const;
+    void embedTraceData(ReportTrace &t, const Measurement &m, bool isLive,
+                        const QStringList &notes, QSet<QString> &usedNames) const;
     Q_SLOT void saveConfig();
     Q_SLOT void loadConfig();
     bool writeConfigFile(const QString &path, QString *error);
@@ -70,8 +74,11 @@ private:
     QString lastDir(const QString &key) const;
     static void rememberDir(const QString &key, const QString &filePath);
     static QIcon colorSwatch(const QColor &color);
+    static void applyAdjustments(Measurement &m);
     static bool writeMeasurementCsv(const QString &path, const Measurement &m, QString *error);
-    static bool readMeasurementCsv(const QString &path, Measurement &m, QString *error);
+    static QByteArray measurementCsv(const Measurement &m);
+    static QList<Measurement> readMeasurementFile(const QString &path, QStringList *errors);
+    static bool parseMeasurementCsv(QTextStream &in, Measurement &m, QString *error);
     Ui::MainWindow *ui;
     TinySA tinySA;
     Rotator rotator;

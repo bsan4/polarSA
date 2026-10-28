@@ -19,6 +19,8 @@ struct ReportTrace
     double gainOffsetDb = 0;
     PatternMetrics metrics;         // at the report frequency, adjustments applied
     QStringList metadata;           // "key,value" lines
+    QString dataFileName;           // embedded CSV attachment name (unique in the report)
+    QByteArray dataCsv;             // polarSA CSV of the trace, empty: not embedded
 };
 
 struct ReportData
@@ -37,6 +39,7 @@ namespace PdfReport
 {
     // A4 report: header with logo and date, info block, radiation pattern, traces table,
     // Max Emissions plot and per-trace details / metadata.
+    // Traces with dataCsv are embedded as file attachments, read back by PdfAttachments::read.
     bool write(const QString &path, const ReportData &data, QString *error);
 }
 

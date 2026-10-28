@@ -1,5 +1,6 @@
 #include "exportdialog.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
@@ -60,6 +61,20 @@ ExportDialog::ExportDialog(const QString &summary, QWidget *parent, const QStrin
     mDut->setFocus();
 }
 
+void ExportDialog::addEmbedDataOption()
+{
+    QSettings settings;
+    mEmbedData = new QCheckBox("Embed trace data in the PDF (CSV attachments, re-importable)");
+    mEmbedData->setChecked(settings.value("export/embed_data", true).toBool());
+    QVBoxLayout *vbox = static_cast<QVBoxLayout *>(layout());
+    vbox->insertWidget(vbox->count() - 1, mEmbedData); // above the buttons
+}
+
+bool ExportDialog::embedData() const
+{
+    return mEmbedData && mEmbedData->isChecked();
+}
+
 QString ExportDialog::dutName() const
 {
     return mDut->text().trimmed();
@@ -97,5 +112,7 @@ void ExportDialog::saveFields() const
     settings.setValue("polarization", mPolarization->currentText());
     settings.setValue("operator", mOperator->text());
     settings.setValue("comment", mComment->toPlainText());
+    if (mEmbedData)
+        settings.setValue("embed_data", mEmbedData->isChecked());
     settings.endGroup();
 }
