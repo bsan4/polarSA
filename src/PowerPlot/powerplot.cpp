@@ -13,6 +13,13 @@ PowerPlot::~PowerPlot()
 {
 }
 
+void PowerPlot::setLiveColor(const QColor &color)
+{
+    mLiveColor = color;
+    applyTheme();
+    replot();
+}
+
 void PowerPlot::setNormalize(bool en)
 {
     mNormalize = en;
@@ -63,7 +70,7 @@ void PowerPlot::applyTheme()
 
     if (mGraph)
     {
-        mGraph->setPen(QPen(high, 2));
+        mGraph->setPen(QPen(mLiveColor.isValid() ? mLiveColor : high, 2));
         mGraph->setBrush(Qt::NoBrush);
     }
 
@@ -128,6 +135,7 @@ void PowerPlot::clearPattern()
     if (mGraph)
         mGraph->data()->clear();
 
+    updateRadialRange();
     replot();
 }
 
@@ -136,26 +144,60 @@ void PowerPlot::setRadiationPattern(const RadiationPattern &pattern)
     if (!mGraph || !mAngularAxis || !mRadialAxis)
         return;
 
+    fillGraph(mGraph, pattern);
+
+    updateRadialRange();
+    applyTheme();
+    replot();
+}
+
+void PowerPlot::setOverlayPatterns(const QList<RadiationPattern> &patterns, const QList<QColor> &colors)
+{
+    if (!mAngularAxis || !mRadialAxis)
+        return;
+
+    while (mOverlayGraphs.size() > patterns.size())
+        mAngularAxis->removeGraph(mOverlayGraphs.takeLast());
+
+    while (mOverlayGraphs.size() < patterns.size())
+    {
+        QCPPolarGraph *g = new QCPPolarGraph(mAngularAxis, mRadialAxis);
+        g->setLineStyle(QCPPolarGraph::lsLine);
+        g->setScatterStyle(QCPScatterStyle::ssNone);
+        g->setPeriodic(true);
+        g->setBrush(Qt::NoBrush);
+        mOverlayGraphs.append(g);
+    }
+
+    for (int i = 0; i < patterns.size(); ++i)
+    {
+        const QColor c = (i < colors.size()) ? colors[i] : QColor(Qt::gray);
+        mOverlayGraphs[i]->setPen(QPen(c, 2));
+        fillGraph(mOverlayGraphs[i], patterns[i]);
+    }
+
+    updateRadialRange();
+    applyTheme();
+    replot();
+}
+
+void PowerPlot::fillGraph(QCPPolarGraph *graph, const RadiationPattern &pattern)
+{
     const int n = qMin(pattern.power.size(), pattern.angles.size());
     if (n <= 0)
     {
-        clearPattern();
+        graph->data()->clear();
         return;
     }
+
+    double maxPower = pattern.power[0];
+    for (int i = 1; i < n; ++i)
+        if (pattern.power[i] > maxPower) maxPower = pattern.power[i];
 
     QVector<double> keys;
     QVector<double> values;
     keys.reserve(n);
     values.reserve(n);
-
-    double maxPower = pattern.power[0];
-    double minPower = pattern.power[0];
-
-    for (int i = 1; i < n; ++i)
-    {
-        if (pattern.power[i] > maxPower) maxPower = pattern.power[i];
-        if (pattern.power[i] < minPower) minPower = pattern.power[i];
-    }
 
     for (int i = 0; i < n; ++i)
     {
@@ -165,25 +207,49 @@ void PowerPlot::setRadiationPattern(const RadiationPattern &pattern)
                              : static_cast<double>(pattern.power[i]));
     }
 
-    mGraph->setData(keys, values, false);
+    graph->setData(keys, values, false);
+}
+
+void PowerPlot::updateRadialRange()
+{
+    if (!mRadialAxis)
+        return;
+
+    // Range covering every non-empty trace (live + overlays)
+    QList<QCPPolarGraph*> graphs = mOverlayGraphs;
+    if (mGraph)
+        graphs.prepend(mGraph);
+
+    bool found = false;
+    double lo = 0.0;
+    double hi = 0.0;
+    for (QCPPolarGraph *g : graphs)
+    {
+        for (auto it = g->data()->constBegin(); it != g->data()->constEnd(); ++it)
+        {
+            if (!found)
+            {
+                lo = hi = it->value;
+                found = true;
+            }
+            lo = qMin(lo, it->value);
+            hi = qMax(hi, it->value);
+        }
+    }
+
+    if (!found)
+        return;
 
     if (mNormalize)
     {
-        double minVal = values[0];
-        for (int i = 1; i < values.size(); ++i)
-            if (values[i] < minVal) minVal = values[i];
+        if (lo > -3.0)
+            lo = -3.0;
 
-        if (minVal > -3.0)
-            minVal = -3.0;
-
-        mRadialAxis->setRange(std::floor(minVal / 5.0) * 5.0, 0.0);
+        mRadialAxis->setRange(std::floor(lo / 5.0) * 5.0, 0.0);
         mRadialAxis->setLabel("Relative Power (dB)");
     }
     else
     {
-        double lo = minPower;
-        double hi = maxPower;
-
         if (std::abs(hi - lo) < 1e-6)
         {
             lo -= 1.0;
@@ -193,7 +259,4 @@ void PowerPlot::setRadiationPattern(const RadiationPattern &pattern)
         mRadialAxis->setRange(lo - 30, hi);
         mRadialAxis->setLabel("Power (dBm)");
     }
-
-    applyTheme();
-    replot();
 }

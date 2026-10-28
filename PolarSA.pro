@@ -13,6 +13,7 @@ DEFINES += QCUSTOMPLOT_USE_OPENGL
 SOURCES += \
     main.cpp \
     lib/QCustomPlot/qcustomplot.cpp \
+    src/ExportDialog/exportdialog.cpp \
     src/PowerPlot/powerplot.cpp \
     src/Rotator/rotator.cpp \
     src/SpectrumPlot/spectrumplot.cpp \
@@ -22,6 +23,7 @@ SOURCES += \
 HEADERS += \
     inc/defines.h \
     lib/QCustomPlot/qcustomplot.h \
+    src/ExportDialog/exportdialog.h \
     src/PowerPlot/powerplot.h \
     src/Rotator/rotator.h \
     src/SpectrumPlot/spectrumplot.h \

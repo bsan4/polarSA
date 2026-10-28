@@ -65,6 +65,28 @@ Example workflow:
 
 ---
 
+### CSV Export / Import and Pattern Comparison
+
+**Export...** first asks for measurement notes (DUT, antenna, matching, polarization, operator, free comments; remembered between exports), then saves the last sequence capture (every spectrum at every angle) to a CSV file:
+
+```
+# polarSA measurement export
+# dut,Sensor board rev B        <- user notes
+# matching,pi 2.2nH / 1.5pF / NC
+# center_MHz,100.0000            <- capture settings (informative)
+angle_deg/freq_Hz,95000000,...   <- frequencies in Hz
+0,-82.50,...                     <- one row per angle, power in dBm
+10,-80.13,...
+```
+
+**Import...** loads one or several of these files and overlays their radiation patterns on the polar plot, at the frequency selected by the cursor (nearest frequency bin; a file whose range does not include that frequency is not drawn). The frequency cursor spans the frequencies of all traces (live capture and imports), so every trace stays reachable even when they were measured in different bands. **Center** jumps to the middle of the live capture (or of the first visible import), **Peak** to the frequency of maximum power over all visible traces and angles. Colors are assigned in import order: red, yellow, cyan, then a set of distinct colors (green, orange, blue, magenta...), then random. In the **Traces** list, the checkbox shows/hides a trace (the live capture included) and a double-click opens a color picker. Hovering a file shows its notes and settings. **Clear Imports** removes all imported files.
+
+The radiation pattern and Max Emissions graphs are separated by a splitter: drag it to resize, drag it to an edge to hide a graph, or double-click it to hide/show Max Emissions.
+
+Files using `;` or tab separators with a `,` decimal mark (e.g. re-saved by a French-locale spreadsheet) are accepted on import.
+
+---
+
 ### tinySA Integration
 
 polarSA communicates directly with **tinySA Ultra** over USB.
@@ -118,7 +140,6 @@ polarSA is useful for:
 # Future Features
 
 Planned improvements include:
-- export to/ import from CSV
 - QPD approximation
 - antenna comparison tools
 - 3D radiation pattern visualization
