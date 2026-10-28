@@ -70,5 +70,16 @@ calibration.files = $$files(calibration/*)
 calibration.path = $$target.path/calibration
 !isEmpty(target.path): INSTALLS += limits calibration
 
+# Windows Release: standalone <build-dir>/deploy/ folder (exe, Qt runtime, limits/, calibration/)
+win32:CONFIG(release, debug|release) {
+    QMAKE_POST_LINK += $$shell_quote($$shell_path($$PWD/deploy_win.bat)) \
+        $$shell_quote($$shell_path($$OUT_PWD)) \
+        $$TARGET \
+        $$shell_quote($$shell_path($$[QT_INSTALL_BINS])) \
+        $$shell_quote($$shell_path($$PWD)) \
+        $$shell_quote($$shell_path($$OUT_PWD/deploy))
+}
+DISTFILES += deploy_win.bat
+
 RESOURCES += \
     rsc/rsc.qrc
