@@ -8,6 +8,6 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationName("Quantor Innovation");
     QCoreApplication::setApplicationName("polarSA");
     MainWindow w;
-    w.show();
+    w.showMaximized();
     return a.exec();
 }

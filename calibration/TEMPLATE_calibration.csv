@@ -1,5 +1,5 @@
-# unit,dBm
-# description,TEMPLATE - no correction (0 dB). Copy this file, fill in your setup and set the unit (e.g. dBuV/m).
+# unit,dBuV
+# description,TEMPLATE - dBm to dBuV in 50 ohm (+107 dB). For field strength add the antenna factor and cable loss, and set the unit to dBuV/m.
 frequency_MHz,correction_dB
-0.1,0
-6000,0
+0.1,107
+6000,107

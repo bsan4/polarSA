@@ -2,6 +2,7 @@
     <qresource prefix="/img">
         <file>polarsa.ico</file>
         <file>polarsa_notxt.ico</file>
+        <file>quantor_logo.png</file>
     </qresource>
     <qresource prefix="/">
         <file>polarsa_notxt.svg</file>

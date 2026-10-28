@@ -1,12 +1,13 @@
 # EMC limit files
 
-Load them with **Corrections & limits → Limits → ...** in polarSA. They are drawn as dashed lines on the
+Load them with **File → Import Limits...** in polarSA. They are drawn as dashed lines on the
 Spectrum and Max Emissions graphs, and as dashed circles on the radiation pattern (the limit value at the
 selected frequency, interpolated on sloped segments).
 
 Limits are only compared to the measurement when the units match: the shipped files are in **dBµV/m**, so a
-setup calibration converting dBm to dBµV/m must be loaded (see `../calibration/README.md`). Without it the
-lines are still drawn on the spectrum graphs, but no margin is computed.
+setup calibration converting dBm to dBµV/m must be loaded (see `../calibration/README.md`), or the coarse
+**Levels → Unit: dBµV/m** with an antenna factor. Otherwise the lines are still drawn on the spectrum graphs,
+but no margin is computed.
 
 ## Shipped files
 

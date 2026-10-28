@@ -45,7 +45,7 @@ struct ReportData
     QStringList notes;              // "key,value" lines from the notes dialog
     QStringList captureSettings;    // "key,value" lines of the live capture
     QString unit = "dBm";           // unit of the displayed levels
-    QString calibration;            // calibration file name and description; empty: none
+    QString calibration;            // how the displayed levels are obtained (external gain, calibration / unit)
     QString limits;                 // limits name / file; empty: none
     QString limitsNote;             // e.g. why limits are not compared
     QList<LimitCheck> limitChecks;

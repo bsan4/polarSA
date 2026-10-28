@@ -2,7 +2,8 @@
 
 A setup calibration turns the level measured by the tinySA (dBm) into the quantity you want to read, usually
 the field strength at the antenna in **dBµV/m**, so it can be compared to EMC limits. Load it with
-**Corrections & limits → Calibration → ...** in polarSA.
+**File → Import Calibration...** in polarSA. For a quick, coarse result without a file, the **Levels → Unit** box
+offers flat conversions (dBµV: +107 dB; dBµV/m: +107 dB + a flat antenna factor).
 
 It is optional: without it, levels are shown in dBm at the analyzer input. Either way, the report and the
 exported CSV files state which calibration was active ("none" when there is none).
@@ -13,9 +14,9 @@ exported CSV files state which calibration was active ("none" when there is none
 level shown = level measured by the tinySA (dBm) - external gain (dB) + correction(f) (dB)
 ```
 
-- **External gain** (spin box above the calibration): gain between the antenna and the tinySA, constant in
-  frequency: `+20` for a 20 dB preamplifier, `-6` for a 6 dB attenuator. It is removed from every sweep when it
-  is captured, and recorded in the capture metadata (`ext_gain_dB`).
+- **External gain** (**Levels → Ext. gain**): gain between the antenna and the tinySA, constant in frequency:
+  `+20` for a 20 dB preamplifier, `-6` for a 6 dB attenuator. Applied to every trace for display; recorded in
+  the capture metadata (`ext_gain_dB`).
 - **Correction(f)**: this file, interpolated linearly in frequency (edge values are used outside the table).
   It is applied for display, analysis and reports only: exported CSV data stay in dBm, so a measurement can be
   re-read later with another calibration.
@@ -42,5 +43,5 @@ frequency_MHz,correction_dB                    <- header: frequency_Hz / _kHz / 
 1000,131.0
 ```
 
-`TEMPLATE_calibration.csv` is a neutral starting point (0 dB everywhere, unit dBm): copy it, fill in your
-setup's values and set the unit.
+`TEMPLATE_calibration.csv` converts dBm to dBµV in 50 Ω (+107 dB everywhere, unit dBuV): copy it, add your
+antenna factor and cable loss for each frequency and set the unit to dBuV/m.

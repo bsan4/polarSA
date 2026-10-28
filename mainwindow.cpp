@@ -13,6 +13,10 @@
 #include <QEvent>
 #include <QSplitter>
 #include <QRegularExpression>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QVBoxLayout>
+#include <QLabel>
 #include <QSignalBlocker>
 #include <QEventLoop>
 #include <QTimer>
@@ -51,16 +55,32 @@ MainWindow::MainWindow(QWidget *parent)
     connect( ui->hsFreq, &QSlider::valueChanged, this, &MainWindow::freqSliderMoved);
     connect( ui->pbFreqCenter, &QPushButton::clicked, this, &MainWindow::goToCenterFrequency );
     connect( ui->pbFreqPeak, &QPushButton::clicked, this, &MainWindow::goToPeakFrequency );
-    connect( ui->pbExportData, &QPushButton::clicked, this, &MainWindow::exportData );
-    connect( ui->pbImportData, &QPushButton::clicked, this, &MainWindow::importData );
-    connect( ui->pbClearImports, &QPushButton::clicked, this, &MainWindow::clearImports );
-    connect( ui->pbExportPdf, &QPushButton::clicked, this, &MainWindow::exportPdf );
-    connect( ui->pbLoadConfig, &QPushButton::clicked, this, &MainWindow::loadConfig );
-    connect( ui->pbSaveConfig, &QPushButton::clicked, this, &MainWindow::saveConfig );
-    connect( ui->pbLoadCalibration, &QToolButton::clicked, this, &MainWindow::loadCalibrationFile );
-    connect( ui->pbClearCalibration, &QToolButton::clicked, this, &MainWindow::clearCalibration );
-    connect( ui->pbLoadLimits, &QToolButton::clicked, this, &MainWindow::loadLimitsFile );
-    connect( ui->pbClearLimits, &QToolButton::clicked, this, &MainWindow::clearLimits );
+
+    // Menus
+    connect( ui->actionImportTrace, &QAction::triggered, this, &MainWindow::importData );
+    connect( ui->actionExportTrace, &QAction::triggered, this, &MainWindow::exportData );
+    connect( ui->actionExportPdf, &QAction::triggered, this, &MainWindow::exportPdf );
+    connect( ui->actionImportConfig, &QAction::triggered, this, &MainWindow::loadConfig );
+    connect( ui->actionExportConfig, &QAction::triggered, this, &MainWindow::saveConfig );
+    connect( ui->actionImportCalibration, &QAction::triggered, this, &MainWindow::loadCalibrationFile );
+    connect( ui->actionImportLimits, &QAction::triggered, this, &MainWindow::loadLimitsFile );
+    connect( ui->actionQuit, &QAction::triggered, this, &QWidget::close );
+    connect( ui->actionClearImports, &QAction::triggered, this, &MainWindow::clearImports );
+    connect( ui->actionClearGraphs, &QAction::triggered, this, &MainWindow::clearGraphs );
+    connect( ui->actionClearCalibration, &QAction::triggered, this, &MainWindow::clearCalibration );
+    connect( ui->actionClearLimits, &QAction::triggered, this, &MainWindow::clearLimits );
+    connect( ui->actionAbout, &QAction::triggered, this, &MainWindow::showAbout );
+    connect( ui->actionAboutQt, &QAction::triggered, qApp, &QApplication::aboutQt );
+
+    // Status bar: config, calibration and limits in use
+    configStatus = new QLabel;
+    calibrationStatus = new QLabel;
+    limitsStatus = new QLabel;
+    for( QLabel *label : {configStatus, calibrationStatus, limitsStatus} )
+    {
+        label->setContentsMargins(8, 0, 8, 0);
+        ui->statusbar->addPermanentWidget(label);
+    }
     connect( ui->lwImports, &QListWidget::itemChanged, this, [this](QListWidgetItem *item){
         int row = ui->lwImports->row(item);
         bool checked = (item->checkState() == Qt::Checked);
@@ -87,24 +107,15 @@ MainWindow::MainWindow(QWidget *parent)
     liveItem->setToolTip("Current sequence capture");
     ui->lwImports->addItem(liveItem);
 
-    // Splitters: visible handles, plots get the extra space, double-click toggles Max Emissions
+    // Splitter between the graphs and the control panel: visible handle, graphs get the extra space
     const QString handleStyle = "QSplitter::handle { background-color: palette(mid); margin: 2px; border-radius: 1px; }"
                                 "QSplitter::handle:hover { background-color: palette(highlight); }";
-    ui->rpSplitter->setStyleSheet(handleStyle);
-    ui->rpSplitter->setHandleWidth(7);
-    ui->rpSplitter->handle(1)->installEventFilter(this);
-    ui->rpSplitter->handle(1)->setToolTip(ui->rpSplitter->toolTip());
-    ui->rpSplitter->setToolTip(QString());
     ui->mainSplitter->setStyleSheet(handleStyle);
     ui->mainSplitter->setHandleWidth(7);
     ui->mainSplitter->setStretchFactor(0, 1);
     ui->mainSplitter->setStretchFactor(1, 0);
 
     QSettings settings;
-    if ( !ui->rpSplitter->restoreState(settings.value("rpSplitter").toByteArray()) )
-    {
-        ui->rpSplitter->setSizes({650, 350});
-    }
     if ( !ui->mainSplitter->restoreState(settings.value("mainSplitter").toByteArray()) )
     {
         ui->mainSplitter->setSizes({width() - 260, 260});
@@ -135,11 +146,35 @@ MainWindow::MainWindow(QWidget *parent)
     connect( ui->sbRotatorEnd, &QSpinBox::valueChanged, this, markModified );
     connect( ui->sbRotatorStep, &QSpinBox::valueChanged, this, markModified );
 
-    // External gain (preamp / attenuator between the antenna and the tinySA), remembered between sessions
+    // Levels: external gain (preamp / attenuator between the antenna and the tinySA) and a coarse,
+    // flat unit conversion used without calibration file. Display corrections, remembered between sessions.
+    const QString micro = QString("dB") + QChar(0x00B5);
+    ui->cbUnit->addItem("dBm", "dBm");
+    ui->cbUnit->addItem(micro + "V", "dBuV");
+    ui->cbUnit->addItem(micro + "V/m", "dBuV/m");
+    ui->cbUnit->addItem("dB (relative)", "dB");
+    ui->cbUnit->setItemData(0, "tinySA level, no conversion", Qt::ToolTipRole);
+    ui->cbUnit->setItemData(1, "dBm + 107 dB (50 " + QString(QChar(0x03A9)) + " system)", Qt::ToolTipRole);
+    ui->cbUnit->setItemData(2, "dBm + 107 dB + antenna factor (flat, coarse): field strength", Qt::ToolTipRole);
+    ui->cbUnit->setItemData(3, "No conversion, levels labelled dB", Qt::ToolTipRole);
     ui->sbExtGain->setValue(settings.value("corrections/extGainDb", 0.0).toDouble());
+    ui->sbAntennaFactor->setValue(settings.value("levels/antennaFactorDbM", 0.0).toDouble());
+    int unitIndex = ui->cbUnit->findData(settings.value("levels/unit", "dBm").toString());
+    ui->cbUnit->setCurrentIndex(unitIndex >= 0 ? unitIndex : 0);
     connect( ui->sbExtGain, &QDoubleSpinBox::valueChanged, this, [this](double db) {
         QSettings().setValue("corrections/extGainDb", db);
         markConfigModified();
+        updateUnits();
+    });
+    connect( ui->cbUnit, &QComboBox::currentIndexChanged, this, [this]() {
+        QSettings().setValue("levels/unit", unitKey());
+        markConfigModified();
+        updateUnits();
+    });
+    connect( ui->sbAntennaFactor, &QDoubleSpinBox::valueChanged, this, [this](double af) {
+        QSettings().setValue("levels/antennaFactorDbM", af);
+        markConfigModified();
+        updateUnits();
     });
 
     // Normalized display, remembered between sessions
@@ -160,34 +195,8 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     QSettings settings;
-    settings.setValue("rpSplitter", ui->rpSplitter->saveState());
     settings.setValue("mainSplitter", ui->mainSplitter->saveState());
     delete ui;
-}
-
-bool MainWindow::eventFilter(QObject *watched, QEvent *event)
-{
-    // Double-click on the radiation pattern / max emissions handle: hide or show Max Emissions
-    if ( watched == ui->rpSplitter->handle(1) && event->type() == QEvent::MouseButtonDblClick )
-    {
-        QList<int> sizes = ui->rpSplitter->sizes();
-        if ( sizes.at(0) == 0 || sizes.at(1) == 0 )
-        {
-            if ( rpSplitterSizes.length() != 2 || rpSplitterSizes.contains(0) )
-            {
-                int total = sizes.at(0) + sizes.at(1);
-                rpSplitterSizes = { total * 65 / 100, total * 35 / 100 };
-            }
-            ui->rpSplitter->setSizes(rpSplitterSizes);
-        }
-        else
-        {
-            rpSplitterSizes = sizes;
-            ui->rpSplitter->setSizes({ sizes.at(0) + sizes.at(1), 0 });
-        }
-        return true;
-    }
-    return QMainWindow::eventFilter(watched, event);
 }
 
 bool MainWindow::devicesReady() const
@@ -203,6 +212,8 @@ void MainWindow::setCaptureRunning(bool running)
     ui->pbSequenceCapture->setEnabled(!running);
     ui->pbLoopSequenceCapture->setEnabled(!running);
     ui->pbStopCapture->setEnabled(running);
+    ui->actionClearGraphs->setEnabled(!running);
+    ui->actionImportConfig->setEnabled(!running);
 }
 
 bool MainWindow::startCapture()
@@ -258,14 +269,6 @@ PowerSpectrum MainWindow::captureSpectrum()
     {
         QApplication::processEvents();
         ps = tinySA.capture();
-    }
-
-    // Levels referred to the antenna side of the external gain (preamp +, attenuator / cable -).
-    // Done here rather than with the tinySA's own "ext gain" setting, which stays at 0.
-    const float extGain = static_cast<float>(ui->sbExtGain->value());
-    for( float &p : ps.power )
-    {
-        p -= extGain;
     }
     return ps;
 }
@@ -390,7 +393,7 @@ bool MainWindow::runSequence(bool reverse, const QString &label, int pass)
         "attenuation_dB," + QString::number(ui->sbSAAtt->value()),
         "lna," + QString(ui->sbSALNA->isChecked() ? "on" : "off"),
         "ext_gain_dB," + QString::number(ui->sbExtGain->value(), 'f', 1),
-        "data_unit,dBm (analyzer input level minus external gain)",
+        "data_unit,dBm (tinySA input level)",
         "angle_start_deg," + QString::number(ui->sbRotatorStart->value()),
         "angle_end_deg," + QString::number(ui->sbRotatorEnd->value()),
         "angle_step_deg," + QString::number(ui->sbRotatorStep->value())
@@ -833,22 +836,139 @@ void MainWindow::removeImport(int index)
     updateSpectrumPlots();
 }
 
-QString MainWindow::calibrationMetadata() const
+QString MainWindow::unitKey() const
 {
-    // Data files always stay in dBm: the calibration is recorded, not applied
-    return "calibration," + (calibration.isValid()
-                             ? calibration.name + " (" + calibration.unit + ", display only: not applied to the data)"
-                             : QString("none"));
+    return ui->cbUnit->currentData().toString();
+}
+
+double MainWindow::unitOffsetDb() const
+{
+    // Flat conversions from dBm (50 ohm system), used when no calibration file is loaded
+    const QString key = unitKey();
+    if ( key == "dBuV" )
+    {
+        return 107.0;
+    }
+    if ( key == "dBuV/m" )
+    {
+        return 107.0 + ui->sbAntennaFactor->value();
+    }
+    return 0.0;
+}
+
+QString MainWindow::levelDescription() const
+{
+    QString d = "tinySA level (dBm)";
+    const double ext = ui->sbExtGain->value();
+    if ( ext != 0 )
+    {
+        d += QString(" %1 %2 dB external gain").arg(ext > 0 ? "-" : "+").arg(QString::number(std::abs(ext), 'f', 1));
+    }
+    if ( calibration.isValid() )
+    {
+        d += " + calibration " + calibration.name
+             + (calibration.description.isEmpty() ? QString() : " (" + calibration.description + ")");
+    }
+    else if ( unitKey() == "dBuV" )
+    {
+        d += " + 107 dB (dBm to dB" + QString(QChar(0x00B5)) + "V, 50 " + QChar(0x03A9) + ")";
+    }
+    else if ( unitKey() == "dBuV/m" )
+    {
+        d += " + 107 dB + AF " + QString::number(ui->sbAntennaFactor->value(), 'f', 1) + " dB/m (flat, coarse)";
+    }
+    return d + " = " + Corrections::displayUnit(dataUnit());
+}
+
+QStringList MainWindow::levelsMetadata() const
+{
+    // Data files always hold tinySA levels in dBm: the conversion is recorded, not applied
+    return QStringList{
+        "calibration," + (calibration.isValid() ? calibration.name + " (" + calibration.unit + ")" : QString("none")),
+        "levels," + levelDescription() + " (display only: the data are tinySA input levels in dBm)"
+    };
 }
 
 QString MainWindow::dataUnit() const
 {
-    return calibration.isValid() ? calibration.unit : QString("dBm");
+    return calibration.isValid() ? calibration.unit : unitKey();
 }
 
 double MainWindow::correctionAt(double hz) const
 {
-    return calibration.isValid() ? calibration.at(hz) : 0.0;
+    // level shown = tinySA level - external gain + calibration(f) or flat unit conversion
+    const double conversion = calibration.isValid() ? calibration.at(hz) : unitOffsetDb();
+    return conversion - ui->sbExtGain->value();
+}
+
+void MainWindow::updateLevelControls()
+{
+    const bool cal = calibration.isValid();
+    ui->cbUnit->setEnabled(!cal);
+    ui->cbUnit->setToolTip( cal ? "Set by the calibration file " + calibration.name + " ("
+                                  + Corrections::displayUnit(calibration.unit) + ")"
+                                : QString("Coarse conversion of the levels (flat in frequency). A calibration file, when loaded, sets the unit instead.") );
+    const bool af = !cal && unitKey() == "dBuV/m";
+    ui->label_af->setVisible(af);
+    ui->sbAntennaFactor->setVisible(af);
+}
+
+void MainWindow::clearGraphs()
+{
+    if ( captureRunning )
+    {
+        return;
+    }
+    if ( !powerSpectra.isEmpty()
+         && QMessageBox::question(this, "Clear Graphs", "Clear the live capture from all graphs?\nImported traces are kept.")
+                != QMessageBox::Yes )
+    {
+        return;
+    }
+    powerSpectra.clear();
+    captureAngles.clear();
+    captureMetadata.clear();
+    lastSpectrum = PowerSpectrum();
+    ui->spectrumPlot->setPowerSpectrum(PowerSpectrum());
+    updateFrequencyRange();
+    updateRadiationPattern();
+    updateSpectrumPlots();
+    ui->statusbar->showMessage("Live capture cleared.");
+}
+
+void MainWindow::showAbout()
+{
+    QDialog dialog(this);
+    dialog.setWindowTitle("About polarSA");
+
+    // Quantor Innovation logo (white artwork) on a dark banner, readable with any theme
+    QLabel *logo = new QLabel;
+    QPixmap pix(":/img/quantor_logo.png");
+    logo->setPixmap(pix.scaledToWidth(260, Qt::SmoothTransformation));
+    logo->setAlignment(Qt::AlignCenter);
+    logo->setStyleSheet("background-color: #15171c; padding: 18px; border-radius: 6px;");
+
+    QLabel *text = new QLabel;
+    text->setTextFormat(Qt::RichText);
+    text->setOpenExternalLinks(true);
+    text->setWordWrap(true);
+    text->setText( QString("<h3>polarSA %1</h3>").arg(POLARSA_VERSION)
+                   + "<p>Radiation pattern and EMC pre-compliance measurements with a tinySA Ultra and a rotating "
+                     "DUT platform.</p>"
+                     "<p>Designed and maintained by <b>Quantor Innovation</b><br>"
+                     "Author: Maxime Bezanilla<br>"
+                     "<a href=\"https://www.quantor.fr\">www.quantor.fr</a></p>"
+                     "<p>License: GPL v3. Built with Qt and QCustomPlot.</p>" );
+
+    QDialogButtonBox *buttons = new QDialogButtonBox(QDialogButtonBox::Ok);
+    connect( buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept );
+
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
+    layout->addWidget(logo);
+    layout->addWidget(text);
+    layout->addWidget(buttons);
+    dialog.resize(420, dialog.sizeHint().height());
+    dialog.exec();
 }
 
 bool MainWindow::limitsComparable() const
@@ -912,7 +1032,7 @@ void MainWindow::updateSpectrumPlots()
     ui->maxSpectrumPlot->setOverlaySpectra(overlays, colors);
 
     // Worst margin to the limits in the group title
-    QString title = "Max Emissions";
+    QString title = "Max hold over all angles of the live capture and of the visible imports";
     if ( limitsComparable() )
     {
         const LimitCheck *worst = nullptr;
@@ -936,12 +1056,12 @@ void MainWindow::updateSpectrumPlots()
     }
     else if ( !limits.isEmpty() )
     {
-        title += QString("  %1  limits in %2, levels in %3: load a calibration to compare")
+        title += QString("  %1  limits in %2, levels in %3: choose that unit (Levels) or load a calibration to compare")
                      .arg(QChar(0x2014))
                      .arg(Corrections::displayUnit(limits.unit))
                      .arg(Corrections::displayUnit(dataUnit()));
     }
-    ui->groupBox_5->setTitle(title);
+    ui->lbMaxInfo->setText(title);
 }
 
 QList<LimitCheck> MainWindow::limitChecks() const
@@ -1001,6 +1121,7 @@ void MainWindow::updateUnits()
     ui->maxSpectrumPlot->setUnit(unit);
     ui->spectrumPlot->setLimits(limits, limitsComparable());
     ui->maxSpectrumPlot->setLimits(limits, limitsComparable());
+    updateLevelControls();
     updateCorrectionLabels();
     updateRadiationPattern();
     updateSpectrumPlots();
@@ -1010,18 +1131,19 @@ void MainWindow::updateCorrectionLabels()
 {
     if ( calibration.isValid() )
     {
-        ui->lbCalibration->setText(calibration.name);
-        ui->lbCalibration->setToolTip( QDir::toNativeSeparators(calibration.path)
+        calibrationStatus->setText("Calibration: " + calibration.name);
+        calibrationStatus->setToolTip( QDir::toNativeSeparators(calibration.path)
                                        + "\nUnit: " + Corrections::displayUnit(calibration.unit)
                                        + "\nRange: " + QString::number(calibration.freqHz.first() * 1e-6, 'f', 3) + " - "
                                        + QString::number(calibration.freqHz.last() * 1e-6, 'f', 3) + " MHz ("
                                        + QString::number(calibration.freqHz.length()) + " points, edge values used outside)"
-                                       + (calibration.description.isEmpty() ? QString() : "\n" + calibration.description) );
+                                       + (calibration.description.isEmpty() ? QString() : "\n" + calibration.description)
+                                       + "\n\n" + levelDescription() );
     }
     else
     {
-        ui->lbCalibration->setText("none");
-        ui->lbCalibration->setToolTip("No setup calibration: levels are in dBm at the analyzer input (external gain removed)");
+        calibrationStatus->setText("Calibration: none");
+        calibrationStatus->setToolTip(levelDescription());
     }
 
     if ( !limits.isEmpty() )
@@ -1031,20 +1153,21 @@ void MainWindow::updateCorrectionLabels()
         {
             names << line.name;
         }
-        ui->lbLimits->setText(limits.name);
-        ui->lbLimits->setToolTip( limits.name + "\n" + QDir::toNativeSeparators(limits.path)
+        limitsStatus->setText("Limits: " + limits.name);
+        limitsStatus->setToolTip( limits.name + "\n" + QDir::toNativeSeparators(limits.path)
                                   + "\nUnit: " + Corrections::displayUnit(limits.unit) + "\nLimits: " + names.join(", ")
                                   + (limits.description.isEmpty() ? QString() : "\n" + limits.description)
                                   + (limitsComparable() ? QString()
                                      : "\n\nNot compared: the levels are in " + Corrections::displayUnit(dataUnit())
-                                       + ". Load a setup calibration in " + Corrections::displayUnit(limits.unit) + ".") );
-        ui->lbLimits->setStyleSheet( limitsComparable() ? QString() : QString("color: #d08000;") );
+                                       + ". Choose the unit " + Corrections::displayUnit(limits.unit)
+                                       + " (Levels) or load a calibration in that unit.") );
+        limitsStatus->setStyleSheet( limitsComparable() ? QString() : QString("color: #d08000;") );
     }
     else
     {
-        ui->lbLimits->setText("none");
-        ui->lbLimits->setToolTip(QString());
-        ui->lbLimits->setStyleSheet(QString());
+        limitsStatus->setText("Limits: none");
+        limitsStatus->setToolTip(QString());
+        limitsStatus->setStyleSheet(QString());
     }
 }
 
@@ -1188,16 +1311,19 @@ QString MainWindow::configDisplayName() const
 
 void MainWindow::updateConfigLabel()
 {
+    QString title = QString("polarSA - ") + POLARSA_VERSION;
     if ( currentConfigPath.isEmpty() )
     {
-        ui->lbConfigName->setText("No config file");
-        ui->lbConfigName->setToolTip(QString());
+        configStatus->setText("Config: none");
+        configStatus->setToolTip("File > Import Config... / Export Config...");
+        setWindowTitle(title);
         return;
     }
     QString name = QFileInfo(currentConfigPath).fileName();
-    ui->lbConfigName->setText( configModified ? name + " *" : name );
-    ui->lbConfigName->setToolTip( QDir::toNativeSeparators(currentConfigPath)
-                                  + (configModified ? "\nModified since loaded / saved" : QString()) );
+    configStatus->setText("Config: " + (configModified ? name + " *" : name));
+    configStatus->setToolTip( QDir::toNativeSeparators(currentConfigPath)
+                              + (configModified ? "\nModified since imported / exported" : QString()) );
+    setWindowTitle(title + "  -  " + name + (configModified ? " *" : ""));
 }
 
 void MainWindow::markConfigModified()
@@ -1259,6 +1385,8 @@ bool MainWindow::writeConfigFile(const QString &path, QString *error)
 
     QJsonObject corrections;
     corrections["ext_gain_dB"] = ui->sbExtGain->value();
+    corrections["unit"] = unitKey();
+    corrections["antenna_factor_dB_m"] = ui->sbAntennaFactor->value();
     corrections["calibration_file"] = calibration.isValid() ? calibration.path : QString();
     corrections["limits_file"] = limits.isEmpty() ? QString() : limits.path;
 
@@ -1367,6 +1495,19 @@ bool MainWindow::readConfigFile(const QString &path, QStringList *warnings, QStr
     {
         QJsonObject corr = root["corrections"].toObject();
         if ( corr.contains("ext_gain_dB") ) ui->sbExtGain->setValue(corr["ext_gain_dB"].toDouble());
+        if ( corr.contains("antenna_factor_dB_m") ) ui->sbAntennaFactor->setValue(corr["antenna_factor_dB_m"].toDouble());
+        if ( corr.contains("unit") )
+        {
+            int index = ui->cbUnit->findData(corr["unit"].toString());
+            if ( index >= 0 )
+            {
+                ui->cbUnit->setCurrentIndex(index);
+            }
+            else
+            {
+                warnings->append("unknown unit '" + corr["unit"].toString() + "', kept " + unitKey());
+            }
+        }
 
         QString calPath = corr["calibration_file"].toString();
         QString err;
@@ -1422,14 +1563,10 @@ ReportData MainWindow::buildReportData(const QStringList &notes, bool embedData)
     data.polarPlot = ui->powerPlot;
     data.maxPlot = ui->maxSpectrumPlot;
     data.unit = dataUnit();
-    if ( calibration.isValid() )
+    data.calibration = levelDescription();
+    if ( calibration.isValid() && !calibration.covers(freqHz) )
     {
-        data.calibration = calibration.name + " (" + Corrections::displayUnit(calibration.unit)
-                           + (calibration.description.isEmpty() ? QString() : ", " + calibration.description) + ")";
-        if ( !calibration.covers(freqHz) )
-        {
-            data.calibration += " - the selected frequency is outside of its range, edge value used";
-        }
+        data.calibration += " - the selected frequency is outside of the calibration range, edge value used";
     }
     if ( !limits.isEmpty() )
     {
@@ -1441,7 +1578,7 @@ ReportData MainWindow::buildReportData(const QStringList &notes, bool embedData)
         else
         {
             data.limitsNote = "Limits are in " + Corrections::displayUnit(limits.unit) + " while the levels are in "
-                              + Corrections::displayUnit(dataUnit()) + ": no comparison. Load a setup calibration to compare.";
+                              + Corrections::displayUnit(dataUnit()) + ": no comparison.";
         }
     }
 
@@ -1493,7 +1630,7 @@ void MainWindow::embedTraceData(ReportTrace &t, const Measurement &m, bool isLiv
         {
             csv.metadata.append("config," + configDisplayName());
         }
-        csv.metadata.append(calibrationMetadata());
+        csv.metadata += levelsMetadata();
         csv.metadata += m.metadata;
 
         // Named like an Export Data file: polarSA_<dut>_<capture date>.csv
@@ -1605,7 +1742,7 @@ void MainWindow::exportData()
     {
         m.metadata.append("config," + configDisplayName());
     }
-    m.metadata.append(calibrationMetadata());
+    m.metadata += levelsMetadata();
     m.metadata += captureMetadata;
     m.angles = captureAngles;
     m.spectra = powerSpectra;
@@ -1620,6 +1757,37 @@ void MainWindow::exportData()
         return;
     }
     ui->statusbar->showMessage("Exported " + QString::number(m.spectra.length()) + " spectra to " + path);
+}
+
+void MainWindow::restoreTinySALevels(Measurement &m)
+{
+    // Files written by earlier polarSA builds stored the levels with the external gain already removed.
+    // The external gain is now a display correction: add it back so the data are tinySA input levels.
+    if ( !m.metadata.contains("data_unit,dBm (analyzer input level minus external gain)") )
+    {
+        return;
+    }
+    double extGain = 0;
+    for( const QString &line : m.metadata )
+    {
+        if ( line.startsWith("ext_gain_dB,") )
+        {
+            extGain = line.mid(12).toDouble();
+        }
+    }
+    if ( extGain == 0 )
+    {
+        return;
+    }
+    for( PowerSpectrum &ps : m.spectra )
+    {
+        for( float &p : ps.power )
+        {
+            p += static_cast<float>(extGain);
+        }
+    }
+    m.metadata.append("import_note,external gain " + QString::number(extGain, 'f', 1)
+                      + " dB added back: levels are tinySA input levels (set Ext. gain to apply it)");
 }
 
 void MainWindow::importData()
@@ -1643,6 +1811,7 @@ void MainWindow::importData()
     int nbImported = 0;
     for( Measurement &m : loaded )
     {
+        restoreTinySALevels(m);
         m.color = nextImportColor();
         importedMeasurements.append(m);
         nbImported++;

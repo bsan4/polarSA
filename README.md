@@ -76,9 +76,18 @@ Capture buttons are disabled while a capture runs; **Stop** is only enabled then
 
 ---
 
+### User Interface
+
+- **Menus**: **File** (Import Trace(s), Export Trace, Export PDF Report, Import / Export Config, Import Calibration, Import Limits, Quit), **Edit** (Clear Imports, Clear Graphs: removes the live capture and keeps the imports, Clear Calibration, Clear Limits) and **Help** (About).
+- **Tabs**: Spectrum (last sweep), Radiation Pattern (polar plot at the frequency cursor), Max Emissions (max hold over all angles).
+- **Right panel**: spectrum analyzer and level settings, rotator angles, capture buttons and the Traces list. The splitter between the graphs and the panel can be dragged.
+- **Status bar**: the config, calibration and limits in use (hover for details).
+
+---
+
 ### CSV Export / Import and Pattern Comparison
 
-**Export...** first asks for measurement notes (DUT, antenna, matching, polarization, operator, free comments; remembered between exports), then saves the last sequence capture (every spectrum at every angle) to a CSV file:
+**File → Export Trace...** first asks for measurement notes (DUT, antenna, matching, polarization, operator, free comments; remembered between exports), then saves the last sequence capture (every spectrum at every angle) to a CSV file:
 
 ```
 # polarSA measurement export
@@ -90,9 +99,9 @@ angle_deg/freq_Hz,95000000,...   <- frequencies in Hz
 10,-80.13,...
 ```
 
-**Import...** loads one or several of these files and overlays their radiation patterns on the polar plot, at the frequency selected by the cursor (nearest frequency bin; a file whose range does not include that frequency is not drawn). The frequency cursor spans the frequencies of all traces (live capture and imports), so every trace stays reachable even when they were measured in different bands. **Center** jumps to the middle of the live capture (or of the first visible import), **Peak** to the frequency of maximum power over all visible traces and angles. Colors are assigned in import order: red, yellow, cyan, then a set of distinct colors (green, orange, blue, magenta...), then random. In the **Traces** list, the checkbox shows/hides a trace (the live capture included). Hovering a file shows its notes and settings. **Clear Imports** removes all imported files.
+**File → Import Trace(s)...** loads one or several of these files and overlays their radiation patterns on the polar plot, at the frequency selected by the cursor (nearest frequency bin; a file whose range does not include that frequency is not drawn). The frequency cursor spans the frequencies of all traces (live capture and imports), so every trace stays reachable even when they were measured in different bands. **Center** jumps to the middle of the live capture (or of the first visible import), **Peak** to the frequency of maximum power over all visible traces and angles. Colors are assigned in import order: red, yellow, cyan, then a set of distinct colors (green, orange, blue, magenta...), then random. In the **Traces** list, the checkbox shows/hides a trace (the live capture included). Hovering a file shows its notes and settings. **Edit → Clear Imports** removes all imported files.
 
-The radiation pattern and Max Emissions graphs are separated by a splitter: drag it to resize, drag it to an edge to hide a graph, or double-click it to hide/show Max Emissions. **Normalized** shows every trace relative to its own maximum (0 dB).
+**Normalized** shows every trace relative to its own maximum (0 dB).
 
 Files using `;` or tab separators with a `,` decimal mark (e.g. re-saved by a French-locale spreadsheet) are accepted on import. Export, import, report and config file dialogs each remember their last folder.
 
@@ -107,33 +116,36 @@ Double-click a trace (live capture or import) to open its dialog:
 - **Gain offset** (dB): added to every value, e.g. to compensate a cable, an attenuator or a different reference level.
 - **Color**, source file, frequency range and the file's **metadata**; **Remove trace** for imports.
 
-Changes are previewed live; Cancel restores the previous settings. Adjustments are display settings: they are shown in the Traces list and the report, and **Export...** applies the live capture's adjustments to the exported data (recorded in its metadata).
+Changes are previewed live; Cancel restores the previous settings. Adjustments are display settings: they are shown in the Traces list and the report, and **Export Trace** applies the live capture's adjustments to the exported data (recorded in its metadata).
 
 ---
 
 ### PDF Report
 
-**PDF Report...** asks for notes (same fields as the export), then creates an A4 report: header with logo, date and config file name, notes and capture settings, radiation pattern at the selected frequency with an analysis table of the visible traces, Max Emissions plot, and the details / metadata of every trace. Plots are rendered with light colors for printing.
+**File → Export PDF Report...** asks for notes (same fields as the export), then creates an A4 report: header with logo, date and config file name, notes and capture settings, radiation pattern at the selected frequency with an analysis table of the visible traces, Max Emissions plot, and the details / metadata of every trace. Plots are rendered with light colors for printing.
 
 ---
 
 ### Session Config Files
 
-**Session config → Save... / Load...** stores the settings (no measurement data) in a JSON file: spectrum analyzer (center, span, RBW, attenuation, LNA), rotator (start, end, step), display (normalized) and the notes used to pre-fill the export / report dialogs. The loaded config name is shown in the panel (`*` when settings were changed since), and is written in the CSV metadata and the PDF report. Configs also store the external gain and the calibration / limits files in use.
+**File → Export Config... / Import Config...** stores the settings (no measurement data) in a JSON file: spectrum analyzer (center, span, RBW, attenuation, LNA), rotator (start, end, step), display (normalized) and the notes used to pre-fill the export / report dialogs. Configs also store the levels settings (external gain, unit, antenna factor) and the calibration / limits files in use. The config name is shown in the status bar and the window title (`*` when settings were changed since), and is written in the CSV metadata and the PDF report.
 
 ---
 
-### Corrections and EMC Limits
+### Levels, Calibration and EMC Limits
 
-The **Corrections & limits** group sets how levels are read:
+Displayed level = tinySA level (dBm) − external gain + conversion. These are display corrections, applied to every trace (live and imported) and to Peak, analysis, limits and reports; data files always keep the tinySA levels in dBm, with the settings recorded in their metadata, so a measurement can be re-read later with other settings.
 
-- **Ext. gain (dB)**: gain between the antenna and the tinySA (`+20` for a 20 dB preamplifier, `-6` for an attenuator or cable loss). It is removed from every new sweep and recorded in the capture metadata (`ext_gain_dB`). Remembered between sessions.
-- **Calibration** (optional): a setup calibration file, correction in dB vs frequency, typically `107 + antenna factor + cable loss` to read field strength in dBµV/m. Applied to every trace for display, analysis, limits and reports; exported CSV data stay in dBm (with ext. gain removed), so a measurement can be re-read later with another calibration. Without a calibration, levels are in dBm and the report / CSV metadata state `calibration: none`. Format and formula: [`calibration/README.md`](calibration/README.md), template in `calibration/`.
-- **Limits**: an EMC limits file with one or several limit lines (e.g. quasi-peak, average, peak), each made of straight segments that may be sloped. They are drawn as dashed lines (with a legend) on the Spectrum and Max Emissions graphs, and as dashed circles on the radiation pattern: the limit value at the selected frequency, interpolated on sloped segments. The Max Emissions title shows the worst margin of the visible traces, and the PDF report gets a limit-check table (worst margin per trace and per limit). Limits are only compared when their unit matches the levels' unit, i.e. with a calibration in dBµV/m for the shipped files.
+- **Levels → Ext. gain (dB)**: gain between the antenna and the tinySA (`+20` for a 20 dB preamplifier, `-6` for an attenuator or cable loss). Changing it updates the graphs at once.
+- **Levels → Unit**: coarse conversion, flat in frequency, when no calibration file is loaded: dBm (none), dBµV (+107 dB, 50 Ω), dBµV/m (+107 dB + a flat antenna factor, **AF (dB/m)**), or dB (relative, label only).
+- **File → Import Calibration...** (optional): a setup calibration file, correction in dB vs frequency, typically `107 + antenna factor + cable loss` to read field strength in dBµV/m. It replaces the unit conversion while loaded. Without it, the report and CSV metadata state `calibration: none`. Format and formula: [`calibration/README.md`](calibration/README.md); the template in `calibration/` converts dBm to dBµV.
+- **File → Import Limits...**: an EMC limits file with one or several limit lines (e.g. quasi-peak, average, peak), each made of straight segments that may be sloped. They are drawn as dashed lines (with a legend) on the Spectrum and Max Emissions graphs, and as dashed circles on the radiation pattern: the limit value at the selected frequency, interpolated on sloped segments. The Max Emissions title shows the worst margin of the visible traces, and the PDF report gets a limit-check table (worst margin per trace and per limit). Limits are only compared when their unit matches the levels' unit: dBµV/m for the shipped files, from a calibration file or from the coarse dBµV/m unit with an antenna factor.
 
 The `limits/` folder ships ready-to-use files for EN 55032 / CISPR 32 (Class A and B, 3 m and 10 m) and FCC Part 15.109 (Class A and B) / 15.209: see [`limits/README.md`](limits/README.md) for the list, the file format and how to write your own. They are for pre-compliance; check them against the edition of the standard that applies. The application looks for `limits/` and `calibration/` next to its executable (copy them there when deploying), then in the source tree.
 
-The **Max Emissions** graph shows the max hold (over all angles) of the live capture and of every visible import, in the trace colors.
+The **Max Emissions** tab shows the max hold (over all angles) of the live capture and of every visible import, in the trace colors, with the worst margin to the limits.
+
+Files exported by builds of polarSA where the external gain was removed from the data at capture time (`data_unit,dBm (analyzer input level minus external gain)`) are converted back to tinySA levels on import.
 
 ---
 

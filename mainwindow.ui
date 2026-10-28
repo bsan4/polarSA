@@ -54,231 +54,235 @@
          <string>Radiation Pattern</string>
         </attribute>
         <layout class="QVBoxLayout" name="verticalLayout_rp">
-         <property name="leftMargin">
-          <number>4</number>
-         </property>
-         <property name="topMargin">
-          <number>4</number>
-         </property>
-         <property name="rightMargin">
-          <number>4</number>
-         </property>
-         <property name="bottomMargin">
+         <property name="spacing">
           <number>4</number>
          </property>
          <item>
-          <widget class="QSplitter" name="rpSplitter">
-           <property name="orientation">
-            <enum>Qt::Orientation::Vertical</enum>
+          <widget class="PowerPlot" name="powerPlot" native="true">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>1</verstretch>
+            </sizepolicy>
            </property>
-           <property name="childrenCollapsible">
+          </widget>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_info">
+           <property name="spacing">
+            <number>6</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="label_5">
+             <property name="text">
+              <string>Frequency</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lbRPFreq">
+             <property name="text">
+              <string>-</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_1">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Policy::Fixed</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>24</width>
+               <height>10</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_12">
+             <property name="text">
+              <string>Max</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lbRPMax">
+             <property name="text">
+              <string>-</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_2">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Policy::Fixed</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>24</width>
+               <height>10</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QLabel" name="label_14">
+             <property name="text">
+              <string>Min</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lbRPMin">
+             <property name="text">
+              <string>-</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_5">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Policy::Fixed</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>24</width>
+               <height>10</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QLabel" name="lbRPLimits">
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_4">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Policy::Fixed</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>24</width>
+               <height>10</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="cbNormalize">
+             <property name="toolTip">
+              <string>Show each trace relative to its own maximum (0 dB)</string>
+             </property>
+             <property name="text">
+              <string>Normalized</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_3">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>10</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_slider">
+           <item>
+            <widget class="QLabel" name="lbMinFreq">
+             <property name="text">
+              <string>-</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSlider" name="hsFreq">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lbMaxFreq">
+             <property name="text">
+              <string>-</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pbFreqCenter">
+             <property name="toolTip">
+              <string>Go to the middle of the frequency range</string>
+             </property>
+             <property name="text">
+              <string>Center</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pbFreqPeak">
+             <property name="toolTip">
+              <string>Go to the frequency of maximum power (all visible traces, all angles)</string>
+             </property>
+             <property name="text">
+              <string>Peak</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="tabMaxEmissions">
+        <attribute name="title">
+         <string>Max Emissions</string>
+        </attribute>
+        <layout class="QVBoxLayout" name="verticalLayout_max">
+         <property name="spacing">
+          <number>4</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="lbMaxInfo">
+           <property name="text">
+            <string>Max hold over all angles of the live capture and of the visible imports</string>
+           </property>
+           <property name="wordWrap">
             <bool>true</bool>
            </property>
-           <property name="toolTip">
-            <string>Drag to resize, drag to an edge to hide a graph, double-click to show/hide Max Emissions</string>
+          </widget>
+         </item>
+         <item>
+          <widget class="SpectrumPlot" name="maxSpectrumPlot" native="true">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>1</verstretch>
+            </sizepolicy>
            </property>
-           <widget class="QGroupBox" name="groupBox_4">
-            <property name="title">
-             <string>Radiation pattern</string>
-            </property>
-            <layout class="QVBoxLayout" name="verticalLayout_4">
-             <property name="spacing">
-              <number>4</number>
-             </property>
-             <item>
-              <widget class="PowerPlot" name="powerPlot" native="true">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                 <horstretch>0</horstretch>
-                 <verstretch>1</verstretch>
-                </sizepolicy>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_info">
-               <property name="spacing">
-                <number>6</number>
-               </property>
-               <item>
-                <widget class="QLabel" name="label_5">
-                 <property name="text">
-                  <string>Frequency</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="lbRPFreq">
-                 <property name="text">
-                  <string>-</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_1">
-                 <property name="orientation">
-                  <enum>Qt::Orientation::Horizontal</enum>
-                 </property>
-                 <property name="sizeType">
-                  <enum>QSizePolicy::Policy::Fixed</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>24</width>
-                   <height>10</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-               <item>
-                <widget class="QLabel" name="label_12">
-                 <property name="text">
-                  <string>Max</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="lbRPMax">
-                 <property name="text">
-                  <string>-</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_2">
-                 <property name="orientation">
-                  <enum>Qt::Orientation::Horizontal</enum>
-                 </property>
-                 <property name="sizeType">
-                  <enum>QSizePolicy::Policy::Fixed</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>24</width>
-                   <height>10</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-               <item>
-                <widget class="QLabel" name="label_14">
-                 <property name="text">
-                  <string>Min</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="lbRPMin">
-                 <property name="text">
-                  <string>-</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="lbRPLimits">
-                 <property name="text">
-                  <string/>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_4">
-                 <property name="orientation">
-                  <enum>Qt::Orientation::Horizontal</enum>
-                 </property>
-                 <property name="sizeType">
-                  <enum>QSizePolicy::Policy::Fixed</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>24</width>
-                   <height>10</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-               <item>
-                <widget class="QCheckBox" name="cbNormalize">
-                 <property name="toolTip">
-                  <string>Show each trace relative to its own maximum (0 dB)</string>
-                 </property>
-                 <property name="text">
-                  <string>Normalized</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <spacer name="horizontalSpacer_3">
-                 <property name="orientation">
-                  <enum>Qt::Orientation::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>10</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-              </layout>
-             </item>
-             <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_slider">
-               <item>
-                <widget class="QLabel" name="lbMinFreq">
-                 <property name="text">
-                  <string>-</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QSlider" name="hsFreq">
-                 <property name="orientation">
-                  <enum>Qt::Orientation::Horizontal</enum>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QLabel" name="lbMaxFreq">
-                 <property name="text">
-                  <string>-</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="pbFreqCenter">
-                 <property name="toolTip">
-                  <string>Go to the middle of the frequency range</string>
-                 </property>
-                 <property name="text">
-                  <string>Center</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="pbFreqPeak">
-                 <property name="toolTip">
-                  <string>Go to the frequency of maximum power (all visible traces, all angles)</string>
-                 </property>
-                 <property name="text">
-                  <string>Peak</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </item>
-            </layout>
-           </widget>
-           <widget class="QGroupBox" name="groupBox_5">
-            <property name="title">
-             <string>Max Emissions</string>
-            </property>
-            <layout class="QGridLayout" name="gridLayout_8">
-             <item row="0" column="0">
-              <widget class="SpectrumPlot" name="maxSpectrumPlot" native="true"/>
-             </item>
-            </layout>
-           </widget>
           </widget>
          </item>
         </layout>
@@ -313,45 +317,6 @@
         <property name="bottomMargin">
          <number>0</number>
         </property>
-        <item>
-         <widget class="QGroupBox" name="groupBox_session">
-          <property name="title">
-           <string>Session config</string>
-          </property>
-          <layout class="QGridLayout" name="gridLayout_session">
-           <property name="spacing">
-            <number>4</number>
-           </property>
-           <item row="0" column="0" colspan="2">
-            <widget class="QLabel" name="lbConfigName">
-             <property name="text">
-              <string>No config file</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QPushButton" name="pbLoadConfig">
-             <property name="toolTip">
-              <string>Load spectrum analyzer, rotator, display and notes settings from a config file</string>
-             </property>
-             <property name="text">
-              <string>Load...</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QPushButton" name="pbSaveConfig">
-             <property name="toolTip">
-              <string>Save the current settings (no measurement data) to a config file</string>
-             </property>
-             <property name="text">
-              <string>Save...</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
         <item>
          <widget class="QGroupBox" name="groupBox">
           <property name="title">
@@ -459,11 +424,11 @@
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="groupBox_corrections">
+         <widget class="QGroupBox" name="groupBox_levels">
           <property name="title">
-           <string>Corrections &amp;&amp; limits</string>
+           <string>Levels</string>
           </property>
-          <layout class="QFormLayout" name="formLayout_corrections">
+          <layout class="QFormLayout" name="formLayout_levels">
            <property name="horizontalSpacing">
             <number>8</number>
            </property>
@@ -480,13 +445,53 @@
            <item row="0" column="1">
             <widget class="QDoubleSpinBox" name="sbExtGain">
              <property name="toolTip">
-              <string>Gain between the antenna and the tinySA: + for a preamplifier, - for an attenuator or cable loss. Removed from every new sweep.</string>
+              <string>Gain between the antenna and the tinySA: + for a preamplifier, - for an attenuator or cable loss. Removed from every displayed level (all traces).</string>
              </property>
              <property name="decimals">
               <number>1</number>
              </property>
              <property name="minimum">
-              <double>-100.000000000000000</double>
+              <double>-200.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>200.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.500000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_unit">
+             <property name="text">
+              <string>Unit</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QComboBox" name="cbUnit">
+             <property name="toolTip">
+              <string>Coarse conversion of the levels (flat in frequency). A calibration file, when loaded, sets the unit instead.</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_af">
+             <property name="text">
+              <string>AF (dB/m)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QDoubleSpinBox" name="sbAntennaFactor">
+             <property name="toolTip">
+              <string>Antenna factor of the receiving antenna, flat over frequency (coarse). Use a calibration file for a frequency-dependent one.</string>
+             </property>
+             <property name="decimals">
+              <number>1</number>
+             </property>
+             <property name="minimum">
+              <double>-50.000000000000000</double>
              </property>
              <property name="maximum">
               <double>100.000000000000000</double>
@@ -495,100 +500,6 @@
               <double>0.500000000000000</double>
              </property>
             </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="label_calibration">
-             <property name="text">
-              <string>Calibration</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <layout class="QHBoxLayout" name="horizontalLayout_lbCalibration">
-             <property name="spacing">
-              <number>2</number>
-             </property>
-             <item>
-              <widget class="QLabel" name="lbCalibration">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
-                 <horstretch>1</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="text">
-                <string>none</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QToolButton" name="pbLoadCalibration">
-               <property name="toolTip">
-                <string>Load a setup calibration file (correction vs frequency, e.g. antenna factor + cable loss)</string>
-               </property>
-               <property name="text">
-                <string>...</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QToolButton" name="pbClearCalibration">
-               <property name="toolTip">
-                <string>Remove the calibration (levels in dBm)</string>
-               </property>
-               <property name="text">
-                <string>×</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="label_limits">
-             <property name="text">
-              <string>Limits</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <layout class="QHBoxLayout" name="horizontalLayout_lbLimits">
-             <property name="spacing">
-              <number>2</number>
-             </property>
-             <item>
-              <widget class="QLabel" name="lbLimits">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
-                 <horstretch>1</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="text">
-                <string>none</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QToolButton" name="pbLoadLimits">
-               <property name="toolTip">
-                <string>Load an EMC limits file (one or several limit lines)</string>
-               </property>
-               <property name="text">
-                <string>...</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QToolButton" name="pbClearLimits">
-               <property name="toolTip">
-                <string>Remove the limits</string>
-               </property>
-               <property name="text">
-                <string>×</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
            </item>
           </layout>
          </widget>
@@ -622,56 +533,58 @@
            <item row="1" column="0">
             <widget class="QLabel" name="label">
              <property name="text">
-              <string>Angles (°)</string>
+              <string>Start</string>
              </property>
             </widget>
            </item>
            <item row="1" column="1">
-            <layout class="QHBoxLayout" name="horizontalLayout_angles">
-             <property name="spacing">
-              <number>4</number>
+            <widget class="QSpinBox" name="sbRotatorStart">
+             <property name="toolTip">
+              <string>Start angle</string>
              </property>
-             <item>
-              <widget class="QSpinBox" name="sbRotatorStart">
-               <property name="toolTip">
-                <string>Start angle</string>
-               </property>
-               <property name="maximum">
-                <number>360</number>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QLabel" name="label_2">
-               <property name="text">
-                <string>to</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QSpinBox" name="sbRotatorEnd">
-               <property name="toolTip">
-                <string>End angle</string>
-               </property>
-               <property name="maximum">
-                <number>360</number>
-               </property>
-               <property name="value">
-                <number>360</number>
-               </property>
-              </widget>
-             </item>
-            </layout>
+             <property name="suffix">
+              <string>°</string>
+             </property>
+             <property name="maximum">
+              <number>360</number>
+             </property>
+            </widget>
            </item>
            <item row="2" column="0">
-            <widget class="QLabel" name="label_3">
+            <widget class="QLabel" name="label_2">
              <property name="text">
-              <string>Step (°)</string>
+              <string>End</string>
              </property>
             </widget>
            </item>
            <item row="2" column="1">
+            <widget class="QSpinBox" name="sbRotatorEnd">
+             <property name="toolTip">
+              <string>End angle</string>
+             </property>
+             <property name="suffix">
+              <string>°</string>
+             </property>
+             <property name="maximum">
+              <number>360</number>
+             </property>
+             <property name="value">
+              <number>360</number>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="label_3">
+             <property name="text">
+              <string>Step</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
             <widget class="QSpinBox" name="sbRotatorStep">
+             <property name="suffix">
+              <string>°</string>
+             </property>
              <property name="maximum">
               <number>360</number>
              </property>
@@ -741,54 +654,20 @@
           <property name="title">
            <string>Traces</string>
           </property>
-          <layout class="QGridLayout" name="gridLayout_traces">
+          <layout class="QVBoxLayout" name="verticalLayout_traces">
            <property name="spacing">
             <number>4</number>
            </property>
-           <item row="0" column="0">
-            <widget class="QPushButton" name="pbExportData">
-             <property name="toolTip">
-              <string>Save the last sequence capture (all spectra vs angle) to a CSV file</string>
-             </property>
-             <property name="text">
-              <string>Export...</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QPushButton" name="pbImportData">
-             <property name="toolTip">
-              <string>Load one or several CSV files and overlay their radiation patterns</string>
-             </property>
-             <property name="text">
-              <string>Import...</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0" colspan="2">
+           <item>
             <widget class="QListWidget" name="lwImports">
              <property name="toolTip">
               <string>Checkbox: show/hide. Double-click: analysis, rotation, gain, color and metadata.</string>
              </property>
+             <property name="horizontalScrollBarPolicy">
+              <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+             </property>
              <property name="textElideMode">
               <enum>Qt::TextElideMode::ElideMiddle</enum>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QPushButton" name="pbExportPdf">
-             <property name="toolTip">
-              <string>Create a PDF report: radiation pattern, traces analysis, max emissions, metadata</string>
-             </property>
-             <property name="text">
-              <string>PDF Report...</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QPushButton" name="pbClearImports">
-             <property name="text">
-              <string>Clear Imports</string>
              </property>
             </widget>
            </item>
@@ -801,7 +680,160 @@
     </item>
    </layout>
   </widget>
+  <widget class="QMenuBar" name="menubar">
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>&amp;File</string>
+    </property>
+    <addaction name="actionImportTrace"/>
+    <addaction name="actionExportTrace"/>
+    <addaction name="actionExportPdf"/>
+    <addaction name="separator"/>
+    <addaction name="actionImportConfig"/>
+    <addaction name="actionExportConfig"/>
+    <addaction name="separator"/>
+    <addaction name="actionImportCalibration"/>
+    <addaction name="actionImportLimits"/>
+    <addaction name="separator"/>
+    <addaction name="actionQuit"/>
+   </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="title">
+     <string>&amp;Edit</string>
+    </property>
+    <addaction name="actionClearImports"/>
+    <addaction name="actionClearGraphs"/>
+    <addaction name="separator"/>
+    <addaction name="actionClearCalibration"/>
+    <addaction name="actionClearLimits"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>&amp;Help</string>
+    </property>
+    <addaction name="actionAbout"/>
+    <addaction name="actionAboutQt"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuEdit"/>
+   <addaction name="menuHelp"/>
+  </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionImportTrace">
+   <property name="text">
+    <string>&amp;Import Trace(s)...</string>
+   </property>
+   <property name="toolTip">
+    <string>Load one or several CSV files (or PDF reports with embedded data) and overlay their radiation patterns</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
+  </action>
+  <action name="actionExportTrace">
+   <property name="text">
+    <string>&amp;Export Trace...</string>
+   </property>
+   <property name="toolTip">
+    <string>Save the last sequence capture (all spectra vs angle) to a CSV file</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="actionExportPdf">
+   <property name="text">
+    <string>Export &amp;PDF Report...</string>
+   </property>
+   <property name="toolTip">
+    <string>Create a PDF report: radiation pattern, traces analysis, max emissions, limits, metadata</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+P</string>
+   </property>
+  </action>
+  <action name="actionImportConfig">
+   <property name="text">
+    <string>Import &amp;Config...</string>
+   </property>
+   <property name="toolTip">
+    <string>Load analyzer, rotator, levels, display and notes settings from a config file</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+O</string>
+   </property>
+  </action>
+  <action name="actionExportConfig">
+   <property name="text">
+    <string>E&amp;xport Config...</string>
+   </property>
+   <property name="toolTip">
+    <string>Save the current settings (no measurement data) to a config file</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="actionImportCalibration">
+   <property name="text">
+    <string>Import Ca&amp;libration...</string>
+   </property>
+   <property name="toolTip">
+    <string>Load a setup calibration file (correction vs frequency, e.g. antenna factor + cable loss)</string>
+   </property>
+  </action>
+  <action name="actionImportLimits">
+   <property name="text">
+    <string>Import &amp;Limits...</string>
+   </property>
+   <property name="toolTip">
+    <string>Load an EMC limits file (one or several limit lines)</string>
+   </property>
+  </action>
+  <action name="actionQuit">
+   <property name="text">
+    <string>&amp;Quit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
+   </property>
+  </action>
+  <action name="actionClearImports">
+   <property name="text">
+    <string>Clear &amp;Imports</string>
+   </property>
+   <property name="toolTip">
+    <string>Remove all imported traces</string>
+   </property>
+  </action>
+  <action name="actionClearGraphs">
+   <property name="text">
+    <string>Clear &amp;Graphs</string>
+   </property>
+   <property name="toolTip">
+    <string>Clear the live capture from all graphs (imports are kept)</string>
+   </property>
+  </action>
+  <action name="actionClearCalibration">
+   <property name="text">
+    <string>Clear Ca&amp;libration</string>
+   </property>
+  </action>
+  <action name="actionClearLimits">
+   <property name="text">
+    <string>Clear &amp;Limits</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>&amp;About polarSA...</string>
+   </property>
+  </action>
+  <action name="actionAboutQt">
+   <property name="text">
+    <string>About &amp;Qt...</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>

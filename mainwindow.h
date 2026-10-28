@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QListWidgetItem>
+#include <QLabel>
 #include <QSet>
 #include <QTextStream>
 #include "src/tinySA/tinySA.h"
@@ -24,9 +25,6 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-
-protected:
-    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     Q_SLOT void triggerSingleCapture();
@@ -59,7 +57,14 @@ private:
     Measurement liveMeasurement() const;
     RadiationPattern tracePattern(const Measurement &m, double freqHz) const;
     QString dataUnit() const;
-    QString calibrationMetadata() const;
+    QStringList levelsMetadata() const;
+    static void restoreTinySALevels(Measurement &m);
+    QString unitKey() const;
+    double unitOffsetDb() const;
+    QString levelDescription() const;
+    void updateLevelControls();
+    Q_SLOT void clearGraphs();
+    Q_SLOT void showAbout();
     double correctionAt(double hz) const;
     bool limitsComparable() const;
     PowerSpectrum corrected(const PowerSpectrum &ps, double gainDb) const;
@@ -122,7 +127,9 @@ private:
     QString currentConfigPath;               // session config file loaded / saved last
     bool configModified = false;
     bool loadingConfig = false;
-    QList<int> rpSplitterSizes;              // sizes to restore when un-hiding a graph
+    QLabel *configStatus = nullptr;          // status bar: config, calibration and limits in use
+    QLabel *calibrationStatus = nullptr;
+    QLabel *limitsStatus = nullptr;
 
     const QList<QPair<QString, float>> rbwMap = {
         QPair<QString, float>("Auto", -1),

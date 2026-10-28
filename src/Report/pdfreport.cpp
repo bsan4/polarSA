@@ -375,9 +375,7 @@ bool PdfReport::write(const QString &path, const ReportData &data, QString *erro
                                                               : "absolute (" + Corrections::displayUnit(data.unit) + ")");
     info << QPair<QString, QString>("Config file", data.configName.isEmpty() ? QString("(none)") : data.configName);
     info << QPair<QString, QString>("Traces", QString::number(data.traces.size()));
-    info << QPair<QString, QString>("Calibration", data.calibration.isEmpty()
-                                                       ? QString("none (levels in dBm at the analyzer input, external gain removed)")
-                                                       : data.calibration);
+    info << QPair<QString, QString>("Levels", data.calibration.isEmpty() ? QString("tinySA level (dBm)") : data.calibration);
     info << QPair<QString, QString>("Limits", data.limits.isEmpty() ? QString("none") : data.limits);
     if (nbEmbedded > 0)
         info << QPair<QString, QString>("Embedded data", QString::number(nbEmbedded) + " CSV file(s), importable in polarSA");
